@@ -1,0 +1,118 @@
+package utils
+
+import (
+	"encoding/json"
+	"github.com/viphxin/xingo/iface"
+	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/timer"
+	"io/ioutil"
+	"strconv"
+	"strings"
+)
+
+type GlobalObj struct {
+	TcpServer              iface.Iserver
+	Dbmgr                  iface.IDbop
+	OnConnectioned         func(fconn iface.Iconnection)
+	OnClosed               func(fconn iface.Iconnection)
+	OnClusterConnectioned  func(fconn iface.Iconnection) //集群rpc root节点回调
+	OnClusterClosed        func(fconn iface.Iconnection)
+	OnClusterCConnectioned func(fconn iface.Iclient) //集群rpc 子节点回调
+	OnClusterCClosed       func(fconn iface.Iclient)
+	OnServerStop           func() //服务器停服回调
+	OnServerStart          func() //服务器停服回调
+	ProtocGate             iface.IServerProtocol
+	Protoc                 iface.IServerProtocol
+	RpcSProtoc             iface.IServerProtocol
+	RpcCProtoc             iface.IClientProtocol
+	TcpPort                int
+	MaxConn                int
+	//log
+	LogPath          string
+	LogName          string
+	MaxLogNum        int32
+	MaxFileSize      int64
+	LogFileUnit      logger.UNIT
+	LogLevel         logger.LEVEL
+	SetToConsole     bool
+	LogFileType      int32
+	PoolSize         int32
+	IsUsePool        bool
+	MaxWorkerLen     int32
+	MaxSendChanLen   int32
+	FrameSpeed       uint8
+	Name             string
+	MaxPacketSize    uint32
+	FrequencyControl string //  100/h, 100/m, 100/s
+	EnableFlowLog    bool
+	MaxRid           uint64
+	TimeChan         chan *timer.Timer
+	UdpIp            string
+	UdpPort          int
+}
+
+func (this *GlobalObj) IncMaxRid() uint64 {
+	this.MaxRid = this.MaxRid + 1
+	return this.MaxRid
+}
+
+func (this *GlobalObj) GetFrequency() (int, string) {
+	fc := strings.Split(this.FrequencyControl, "/")
+	if len(fc) != 2 {
+		return 0, ""
+	} else {
+		fc0_int, err := strconv.Atoi(fc[0])
+		if err == nil {
+			return fc0_int, fc[1]
+		} else {
+			logger.Error("FrequencyControl params error: ", this.FrequencyControl)
+			return 0, ""
+		}
+	}
+}
+
+func (this *GlobalObj) IsGate() bool {
+	return strings.Contains(this.Name, "gate")
+}
+func (this *GlobalObj) IsNet() bool {
+	return strings.Contains(this.Name, "net")
+}
+
+var GlobalObject *GlobalObj
+
+func init() {
+	GlobalObject = &GlobalObj{
+		TcpPort:                8109,
+		MaxConn:                12000,
+		LogPath:                "./log",
+		LogName:                "server.log",
+		MaxLogNum:              10,
+		MaxFileSize:            100,
+		LogFileUnit:            logger.KB,
+		LogLevel:               logger.ERROR,
+		SetToConsole:           true,
+		LogFileType:            1,
+		PoolSize:               1,
+		IsUsePool:              true,
+		MaxWorkerLen:           1024 * 2,
+		MaxSendChanLen:         1024,
+		FrameSpeed:             30,
+		EnableFlowLog:          false,
+		TimeChan:               make(chan *timer.Timer),
+		OnConnectioned:         func(fconn iface.Iconnection) {},
+		OnClosed:               func(fconn iface.Iconnection) {},
+		OnClusterConnectioned:  func(fconn iface.Iconnection) {},
+		OnClusterClosed:        func(fconn iface.Iconnection) {},
+		OnClusterCConnectioned: func(fconn iface.Iclient) {},
+		OnClusterCClosed:       func(fconn iface.Iclient) {},
+	}
+	//读取用户自定义配置
+	data, err := ioutil.ReadFile("conf/server.json")
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(data, &GlobalObject)
+	if err != nil {
+		panic(err)
+	}
+}
