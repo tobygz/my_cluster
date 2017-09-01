@@ -32,13 +32,18 @@ func NewMsgHandle() *MsgHandle {
 //一致性路由,保证同一连接的数据转发给相同的goroutine
 func (this *MsgHandle) DeliverToMsgQueue(pkg interface{}) {
 	data := pkg.(*PkgAll)
-	if data.Pid == 0 {
-		index := uint32(data.Fconn.GetSessionId()) % uint32(utils.GlobalObject.PoolSize)
-		this.Raw_DeliverToMsgQueue(data, index)
-	} else {
-		index := uint32(data.Pid) % uint32(utils.GlobalObject.PoolSize)
-		this.Raw_DeliverToMsgQueue(data, index)
-	}
+
+	//index := uint32(data.Pid) % uint32(utils.GlobalObject.PoolSize)
+	this.Raw_DeliverToMsgQueue(data, 0)
+	/*
+		if data.Pid == 0 {
+			index := uint32(data.Fconn.GetSessionId()) % uint32(utils.GlobalObject.PoolSize)
+			this.Raw_DeliverToMsgQueue(data, index)
+		} else {
+			index := uint32(data.Pid) % uint32(utils.GlobalObject.PoolSize)
+			this.Raw_DeliverToMsgQueue(data, index)
+		}
+	*/
 }
 
 func (this *MsgHandle) Raw_DeliverToMsgQueue(data *PkgAll, index uint32) {
@@ -96,9 +101,8 @@ func (this *MsgHandle) AddRouter(router interface{}) {
 			//to global
 			//this.Apis[uint32(i)] = router.Api_msg2global
 		}
-	} else {
-		this.AddRouter_raw(router)
 	}
+	this.AddRouter_raw(router)
 }
 
 func (this *MsgHandle) AddRouter_raw(router interface{}) {
@@ -113,7 +117,9 @@ func (this *MsgHandle) AddRouter_raw(router interface{}) {
 		k := strings.Split(name, "_")
 		index, err := strconv.Atoi(k[len(k)-1])
 		if err != nil {
-			panic("error api: " + name)
+			//panic("error api: " + name)
+			logger.Debug("ignore func", name)
+			continue
 		}
 		if _, ok := this.Apis[uint32(index)]; ok {
 			//存在
