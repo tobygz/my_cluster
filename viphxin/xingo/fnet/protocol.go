@@ -68,7 +68,7 @@ func (this *Protocol) OnConnectionMade(fconn iface.Iconnection) {
 	logger.Info(fmt.Sprintf("client ID: %d connected. IP Address: %s", fconn.GetSessionId(), fconn.RemoteAddr()))
 	utils.GlobalObject.OnConnectioned(fconn)
 	//加频率控制
-	this.SetFrequencyControl(fconn)
+	//this.SetFrequencyControl(fconn)
 }
 
 func (this *Protocol) SetFrequencyControl(fconn iface.Iconnection) {
@@ -96,7 +96,7 @@ func (this *Protocol) DoFrequencyControl(fconn iface.Iconnection) error {
 	} else {
 		if time.Now().UnixNano()*1e6 >= xingo_fc1.(int64) {
 			//init
-			this.SetFrequencyControl(fconn)
+			//this.SetFrequencyControl(fconn)
 		} else {
 			xingo_fc, _ := fconn.GetProperty("xingo_fc")
 			xingo_fc0, _ := fconn.GetProperty("xingo_fc0")
