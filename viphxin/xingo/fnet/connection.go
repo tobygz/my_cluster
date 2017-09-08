@@ -52,6 +52,7 @@ func (this *Connection) Stop() {
 	this.sendtagGuard.Lock()
 	defer this.sendtagGuard.Unlock()
 
+	logger.Error(fmt.Sprintf("raw fnet connection stop sessid: %d", this.SessionId))
 	if this.isClosed {
 		return
 	}
