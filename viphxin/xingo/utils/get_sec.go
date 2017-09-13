@@ -1,7 +1,6 @@
 package utils
 
 import (
-	//"log"
 	"sync/atomic"
 	"time"
 )
@@ -18,11 +17,9 @@ func StartFastSec() {
 			case <-time.After(time.Second):
 				valt := uint32(time.Now().Unix())
 				c1 <- valt
-				//log.Println("===========> build new sec", valt)
 			}
 		}
 	}()
-
 }
 
 func GetFastSec() uint32 {
