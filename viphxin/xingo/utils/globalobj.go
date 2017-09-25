@@ -49,6 +49,7 @@ type GlobalObj struct {
 	TimeChan         chan *timer.Timer
 	UdpIp            string
 	UdpPort          int
+	WebObj           iface.Iweb
 }
 
 func (this *GlobalObj) IncMaxRid() uint64 {
@@ -76,6 +77,9 @@ func (this *GlobalObj) IsGate() bool {
 }
 func (this *GlobalObj) IsNet() bool {
 	return strings.Contains(this.Name, "net")
+}
+func (this *GlobalObj) IsAdmin() bool {
+	return strings.Contains(this.Name, "admin")
 }
 
 var GlobalObject *GlobalObj
@@ -106,6 +110,7 @@ func init() {
 		OnClusterCConnectioned: func(fconn iface.Iclient) {},
 		OnClusterCClosed:       func(fconn iface.Iclient) {},
 	}
+
 	//读取用户自定义配置
 	data, err := ioutil.ReadFile("conf/server.json")
 	if err != nil {

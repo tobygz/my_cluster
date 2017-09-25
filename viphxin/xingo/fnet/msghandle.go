@@ -195,6 +195,8 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 				} else {
 					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
 				}
+			case <-time.After(time.Microsecond * 20):
+				utils.GlobalObject.WebObj.StartParseReq()
 			case df := <-utils.GlobalObject.TimeChan:
 				df.GetFunc().Call()
 			case udpreq := <-udpserv.GlobalUdpServ.GetChan():

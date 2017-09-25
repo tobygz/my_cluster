@@ -8,6 +8,7 @@ import (
 	"github.com/viphxin/xingo/fserver"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/web"
 	//	"github.com/viphxin/xingo/udpserv"
 	"github.com/viphxin/xingo/utils"
 	"net/http"
@@ -158,7 +159,7 @@ func (this *ClusterServer) StartTcpServer(funcCb func(...interface{}), frameMs u
 		this.RootServer.Start()
 	}
 
-	if frameMs != 0 {
+	if frameMs != 0 && this.RootServer != nil {
 		tmDu, _ := time.ParseDuration(fmt.Sprintf("%dms", frameMs))
 		this.RootServer.CallLoop(tmDu, funcCb)
 	}
@@ -207,19 +208,22 @@ func (this *ClusterServer) StartClusterServer() {
 
 	//http server
 	if len(serverconf.Http) > 0 {
+		go utils.GlobalObject.WebObj.Start(fmt.Sprintf("%v", serverconf.Http[0].(float64)))
 		//staticfile handel
-		if len(serverconf.Http) == 2 {
-			this.httpServerMux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(serverconf.Http[1].(string)))))
-		}
-		httpserver := &http.Server{
-			Addr:           fmt.Sprintf(":%d", int(serverconf.Http[0].(float64))),
-			Handler:        this.httpServerMux,
-			ReadTimeout:    5 * time.Second,
-			WriteTimeout:   5 * time.Second,
-			MaxHeaderBytes: 1 << 20, //1M
-		}
-		httpserver.SetKeepAlivesEnabled(true)
-		go httpserver.ListenAndServe()
+		/*
+			if len(serverconf.Http) == 2 {
+				this.httpServerMux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(serverconf.Http[1].(string)))))
+			}
+			httpserver := &http.Server{
+				Addr:           fmt.Sprintf(":%d", int(serverconf.Http[0].(float64))),
+				Handler:        this.httpServerMux,
+				ReadTimeout:    5 * time.Second,
+				WriteTimeout:   5 * time.Second,
+				MaxHeaderBytes: 1 << 20, //1M
+			}
+			httpserver.SetKeepAlivesEnabled(true)
+			//go httpserver.ListenAndServe()
+		*/
 		logger.Info(fmt.Sprintf("http://%s:%d start", serverconf.Host, int(serverconf.Http[0].(float64))))
 	} else if len(serverconf.Https) > 2 {
 		//staticfile handel
@@ -257,6 +261,14 @@ func (this *ClusterServer) StartClusterServer() {
 	}
 
 	logger.Info("xingo cluster start success.")
+	if utils.GlobalObject.IsAdmin() {
+		go func() {
+			for {
+				utils.GlobalObject.WebObj.StartParseReq()
+				time.Sleep(time.Microsecond * 100)
+			}
+		}()
+	}
 	// close
 	this.WaitSignal()
 	this.MasterObj.Stop(true)
@@ -393,7 +405,11 @@ func (this *ClusterServer) AddModuleApi(mname string, module interface{}) {
 }
 
 func (this *ClusterServer) AddModuleHttp(mname string, module interface{}) {
-	this.modulesHttp[mname] = append(this.modulesHttp[mname], module)
+	if utils.GlobalObject.WebObj == nil {
+		utils.GlobalObject.WebObj = web.NewWeb()
+	}
+	utils.GlobalObject.WebObj.AddHandles(module)
+	//this.modulesHttp[mname] = append(this.modulesHttp[mname], module)
 }
 
 /*
