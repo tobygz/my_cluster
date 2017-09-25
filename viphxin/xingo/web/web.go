@@ -70,7 +70,7 @@ func (this *Web) Start(port string) {
 			return
 		}
 		//logs an incoming message
-		fmt.Printf("Received message %s -> %s \n", conn.RemoteAddr(), conn.LocalAddr())
+		//fmt.Printf("Received message %s -> %s \n", conn.RemoteAddr(), conn.LocalAddr())
 		// Handle connections in a new goroutine.
 
 		buf := make([]byte, 1024)
