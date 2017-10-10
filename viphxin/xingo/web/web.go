@@ -24,6 +24,8 @@ type HandleReq struct {
 type Web struct {
 	reqChan chan *DataReq
 	apis    map[string]reflect.Value
+	l       net.Listener
+	run     bool
 }
 
 var GlobalWeb *Web
@@ -35,16 +37,22 @@ func NewWeb() *Web {
 	GlobalWeb := &Web{
 		reqChan: make(chan *DataReq, 16),
 		apis:    make(map[string]reflect.Value, 32),
+		run:     true,
 	}
 
 	return GlobalWeb
 }
 
 func (this *Web) StartParseReq() {
+	if this.run == false {
+		return
+	}
 	for {
 		select {
 		case req := <-this.reqChan:
-			this.handleRequest(req.conn, req.reqStr)
+			if req != nil {
+				this.handleRequest(req.conn, req.reqStr)
+			}
 		case <-time.After(time.Microsecond * 0):
 			return
 		}
@@ -53,18 +61,17 @@ func (this *Web) StartParseReq() {
 
 func (this *Web) Start(port string) {
 	port = fmt.Sprintf(":%s", port)
-	var l net.Listener
 	var err error
-	l, err = net.Listen("tcp", port)
+	this.l, err = net.Listen("tcp", port)
 	if err != nil {
 		logger.Debug("Error listening:", err)
 		return
 	}
-	defer l.Close()
+	defer this.l.Close()
 	this.StartParseReq()
 	logger.Debug("Listening on " + ":" + port)
 	for {
-		conn, err := l.Accept()
+		conn, err := this.l.Accept()
 		if err != nil {
 			logger.Debug("Error accepting: ", err)
 			return
@@ -152,14 +159,20 @@ func (this *Web) handleRequest(conn net.Conn, reqBody string) {
 	conn.Close()
 }
 
+func (this *Web) RawClose() {
+	this.l.Close()
+	close(this.reqChan)
+	this.run = false
+}
+
 func (this *Web) WaitSignal() {
 	// close
 	c := make(chan os.Signal, 1)
 	//signal.Notify(c, os.Interrupt, os.Kill)
 	signal.Notify(c, os.Interrupt, os.Kill)
 	sig := <-c
-	logger.Debug(sig)
-	close(this.reqChan)
+	this.RawClose()
+	logger.Info("Web close sig: ", sig)
 }
 
 func parseReqAry(reqStr string) []string {

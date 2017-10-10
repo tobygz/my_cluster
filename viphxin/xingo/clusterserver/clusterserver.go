@@ -264,7 +264,9 @@ func (this *ClusterServer) StartClusterServer() {
 	if utils.GlobalObject.IsAdmin() {
 		go func() {
 			for {
-				utils.GlobalObject.WebObj.StartParseReq()
+				if utils.GlobalObject.WebObj != nil {
+					utils.GlobalObject.WebObj.StartParseReq()
+				}
 				time.Sleep(time.Microsecond * 100)
 			}
 		}()
@@ -283,6 +285,10 @@ func (this *ClusterServer) WaitSignal() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGUSR1)
 	sig := <-c
+	if utils.GlobalObject.WebObj != nil {
+		utils.GlobalObject.WebObj.RawClose()
+		utils.GlobalObject.WebObj = nil
+	}
 	logger.Info(fmt.Sprintf("server exit. signal: [%s]", sig))
 }
 

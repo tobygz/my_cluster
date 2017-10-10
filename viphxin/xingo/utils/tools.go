@@ -92,3 +92,7 @@ func Goid() int {
 	}
 	return id
 }
+
+func PrintStack() {
+	debug.PrintStack()
+}
