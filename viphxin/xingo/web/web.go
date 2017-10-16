@@ -140,6 +140,7 @@ func (this *Web) handleRequest(conn net.Conn, reqBody string) {
 
 	parseMap := parseReqBody(reqBody)
 	reqName, _ := (*parseMap)["innerreqname"]
+	reqName = strings.ToLower(reqName)
 	//valSend := fmt.Sprintf("hello Web golang reqName: %s, map length: %d", reqName, len(*parseMap))
 
 	logger.Debug("handleRequest req: ", reqName)
