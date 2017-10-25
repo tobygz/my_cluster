@@ -15,6 +15,9 @@ import (
         "time"
 )
 
+var MAX_UINT32 uint32 = 4294967295
+var PER_CNT uint32 = 5
+
 func init() {
         utils.GlobalObject.Protoc = fnet.NewProtocol()
         // --------------------------------------------init log start
@@ -37,28 +40,28 @@ func NewServer() iface.Iserver {
                 MaxConn:       utils.GlobalObject.MaxConn,
                 connectionMgr: fnet.NewConnectionMgr(),
         }
+        s.initSessIdPool()
         utils.GlobalObject.TcpServer = s
 
         return s
 }
 
 func (this *Server) initSessIdPool() {
-        this.sessIdPool = make(chan uint32, 4294967295)
-        ct := uint32(0)
-        for {
-                this.sessIdPool <- ct
-                ct++
-                if ct == 4294967295 {
-                        break
+        go func() {
+                this.sessIdPool = make(chan uint32, PER_CNT)
+                ct := uint32(0)
+                for {
+                        this.sessIdPool <- ct
+                        ct++
+                        if ct == MAX_UINT32 {
+                                ct = 0
+                        }
                 }
-        }
+        }()
 }
 
 func (this *Server) handleConnection(conn *net.TCPConn) {
         //this.GenNum += 1
-        if len(this.sessIdPool) < 1 {
-                this.initSessIdPool()
-        }
         this.GenNum = <-this.sessIdPool
         conn.SetNoDelay(true)
         conn.SetKeepAlive(true)
