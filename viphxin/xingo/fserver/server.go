@@ -46,6 +46,7 @@ func NewServer() iface.Iserver {
         return s
 }
 
+
 func (this *Server) initSessIdPool() {
         go func() {
                 this.sessIdPool = make(chan uint32, PER_CNT)
@@ -58,6 +59,18 @@ func (this *Server) initSessIdPool() {
                         }
                 }
         }()
+}
+
+func (this *Server) initSessIdPool() {
+	this.sessIdPool = make(chan uint32,4294967295)
+	ct := uint32(1)
+	for {
+		this.sessIdPool <- ct
+		ct++
+		if ct == 4294967295 {
+			break
+		}
+	}
 }
 
 func (this *Server) handleConnection(conn *net.TCPConn) {
