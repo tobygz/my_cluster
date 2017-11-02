@@ -178,6 +178,9 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 			if udpserv.GlobalUdpServ == nil {
 				udpserv.NewUdpServ(utils.GlobalObject.UdpPort)
 			}
+			if utils.GlobalObject.WebObj == nil {
+				continue
+			}
 			select {
 			case data := <-taskQueue:
 				if f, ok := this.Apis[data.Pdata.MsgId]; ok {
@@ -195,9 +198,10 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 				} else {
 					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
 				}
-			case <-time.After(time.Microsecond * 20):
-				if utils.GlobalObject.WebObj != nil {
-					utils.GlobalObject.WebObj.StartParseReq()
+
+			case req := <-utils.GlobalObject.WebObj.GetReqChan():
+				if utils.GlobalObject.WebObj != nil && req != nil {
+					utils.GlobalObject.WebObj.HandleReqCall(req)
 				}
 			case df := <-utils.GlobalObject.TimeChan:
 				df.GetFunc().Call()

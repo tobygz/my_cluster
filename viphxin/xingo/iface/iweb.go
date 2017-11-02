@@ -7,4 +7,6 @@ type Iweb interface {
 	AddHandles(router interface{})
 	Start(port string)
 	RawClose()
+	HandleReqCall(req interface{})
+	GetReqChan() chan interface{}
 }

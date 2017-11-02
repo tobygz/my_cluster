@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"reflect"
 	"strings"
-	"time"
 )
 
 type DataReq struct {
@@ -22,7 +21,7 @@ type HandleReq struct {
 }
 
 type Web struct {
-	reqChan chan *DataReq
+	reqChan chan interface{}
 	apis    map[string]reflect.Value
 	l       net.Listener
 	run     bool
@@ -35,7 +34,7 @@ func NewWeb() *Web {
 		return GlobalWeb
 	}
 	GlobalWeb := &Web{
-		reqChan: make(chan *DataReq, 16),
+		reqChan: make(chan interface{}, 16),
 		apis:    make(map[string]reflect.Value, 32),
 		run:     true,
 	}
@@ -43,18 +42,25 @@ func NewWeb() *Web {
 	return GlobalWeb
 }
 
+func (this *Web) GetReqChan() chan interface{} {
+	return this.reqChan
+}
+
+func (this *Web) HandleReqCall(re interface{}) {
+	req := re.(*DataReq)
+	this.handleRequest(req.conn, req.reqStr)
+}
+
+//for admin only, called in gate is forbidden
 func (this *Web) StartParseReq() {
 	if this.run == false {
 		return
 	}
 	for {
-		select {
-		case req := <-this.reqChan:
-			if req != nil {
-				this.handleRequest(req.conn, req.reqStr)
-			}
-		case <-time.After(time.Microsecond * 0):
-			return
+		re := <-this.reqChan
+		req := re.(*DataReq)
+		if req != nil {
+			this.handleRequest(req.conn, req.reqStr)
 		}
 	}
 }
@@ -68,7 +74,6 @@ func (this *Web) Start(port string) {
 		return
 	}
 	defer this.l.Close()
-	this.StartParseReq()
 	logger.Debug("Listening on " + ":" + port)
 	for {
 		conn, err := this.l.Accept()
