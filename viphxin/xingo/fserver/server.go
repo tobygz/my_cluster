@@ -49,7 +49,7 @@ func NewServer() iface.Iserver {
 func (this *Server) initSessIdPool() {
 	go func() {
 		this.sessIdPool = make(chan uint32, PER_CNT)
-		ct := uint32(0)
+		ct := uint32(1)
 		for {
 			this.sessIdPool <- ct
 			ct++
