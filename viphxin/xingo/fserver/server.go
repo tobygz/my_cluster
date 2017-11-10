@@ -54,7 +54,7 @@ func (this *Server) initSessIdPool() {
 			this.sessIdPool <- ct
 			ct++
 			if ct == MAX_UINT32 {
-				ct = 0
+				ct = uint32(1)
 			}
 		}
 	}()
