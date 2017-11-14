@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/viphxin/xingo/logger"
 	"io"
+	"math/rand"
 	"net/http"
 	"reflect"
 	"runtime"
@@ -77,6 +78,7 @@ func ZlibUnCompress(compressSrc []byte) []byte {
 }
 
 func Goid() int {
+	return 0
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println("panic recover:panic info:%v", err)
@@ -95,4 +97,13 @@ func Goid() int {
 
 func PrintStack() {
 	debug.PrintStack()
+}
+
+var g_rand *rand.Rand
+
+func GetRandVal(limit int) int {
+	if g_rand == nil {
+		g_rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
+	return g_rand.Intn(limit)
 }
