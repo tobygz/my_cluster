@@ -58,6 +58,9 @@ func (this *Web) StartParseReq() {
 	}
 	for {
 		re := <-this.reqChan
+		if re == nil {
+			break
+		}
 		req := re.(*DataReq)
 		if req != nil {
 			this.handleRequest(req.conn, req.reqStr)
