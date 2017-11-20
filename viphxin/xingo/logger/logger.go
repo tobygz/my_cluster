@@ -41,6 +41,7 @@ const (
 
 const (
 	ALL LEVEL = iota
+	TRACE
 	DEBUG
 	INFO
 	WARN
@@ -152,6 +153,25 @@ func console(s ...interface{}) {
 func catchError() {
 	if err := recover(); err != nil {
 		log.Println("err", err)
+	}
+}
+
+func Trace(v ...interface{}) {
+	if dailyRolling {
+		fileCheck()
+	}
+	defer catchError()
+	if logObj != nil {
+		logObj.mu.RLock()
+		defer logObj.mu.RUnlock()
+	}
+
+	if logLevel <= TRACE {
+		if logObj != nil {
+			logObj.lg.Output(2, fmt.Sprintln("trace", v))
+		} else {
+			console("trace", v)
+		}
 	}
 }
 

@@ -75,7 +75,7 @@ func (this *RpcMsgHandle) DeliverToMsgQueue(pkg interface{}) {
 		logger.Debug(fmt.Sprintf("add to rpc pool : %d ", index))
 	}
 	taskQueue <- request
-	logger.Debug(fmt.Sprintf("DeliverToMsgQueue add to rpc pool : %d size: %d", index, len(taskQueue)))
+	logger.Trace(fmt.Sprintf("DeliverToMsgQueue add to rpc pool : %d size: %d", index, len(taskQueue)))
 }
 
 func (this *RpcMsgHandle) DoMsgFromGoRoutine(pkg interface{}) {

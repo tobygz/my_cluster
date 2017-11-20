@@ -92,7 +92,7 @@ func (this *RpcServerProtocol) StartReadThread(fconn iface.Iconnection) {
 					return
 				}
 
-				logger.Debug(fmt.Sprintf("rpc call. data len: %d. MsgType: %d", pkg.Len, int(rpcRequest.Rpcdata.MsgType)))
+				logger.Trace(fmt.Sprintf("rpc call. data len: %d. MsgType: %d", pkg.Len, int(rpcRequest.Rpcdata.MsgType)))
 				if utils.GlobalObject.PoolSize > 0 && rpcRequest.Rpcdata.MsgType != RESPONSE {
 					this.rpcMsgHandle.DeliverToMsgQueue(rpcRequest)
 				} else {
