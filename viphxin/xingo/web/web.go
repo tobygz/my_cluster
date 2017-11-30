@@ -92,6 +92,7 @@ func (this *Web) Start(port string) {
 		_, err = conn.Read(buf)
 		if err != nil {
 			logger.Debug("Error to read message because of ", err)
+			conn.Close()
 			continue
 		}
 		if ok, retAry := checkFullReq(string(buf)); ok {
@@ -105,6 +106,7 @@ func (this *Web) Start(port string) {
 			logger.Debug("buf: %s not full", string(buf))
 		}
 	}
+	logger.Info("web thread exited...")
 }
 
 func (this *Web) AddHandles(router interface{}) {
