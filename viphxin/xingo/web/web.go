@@ -78,7 +78,10 @@ func (this *Web) Start(port string) {
 	}
 	defer this.l.Close()
 	logger.Debug("Listening on " + ":" + port)
+	counter := 0
 	for {
+		counter++
+		logger.Debug("ready accept :", counter)
 		conn, err := this.l.Accept()
 		if err != nil {
 			logger.Debug("Error accepting: ", err)
@@ -88,23 +91,33 @@ func (this *Web) Start(port string) {
 		//fmt.Printf("Received message %s -> %s \n", conn.RemoteAddr(), conn.LocalAddr())
 		// Handle connections in a new goroutine.
 
-		buf := make([]byte, 1024)
-		_, err = conn.Read(buf)
-		if err != nil {
-			logger.Debug("Error to read message because of ", err)
-			conn.Close()
-			continue
-		}
-		if ok, retAry := checkFullReq(string(buf)); ok {
-			tmpReqStr := parseReq(retAry)
-			this.reqChan <- &DataReq{
-				reqStr: tmpReqStr,
-				conn:   conn,
+		go func(ct int) {
+			logger.Debug("ready read: ", ct)
+			strTotal := ""
+			for {
+				tbuf := make([]byte, 1024)
+				n, err := conn.Read(tbuf)
+				if err != nil {
+					logger.Debug("Error to read message because of ", err)
+					conn.Close()
+					break
+				}
+				strTotal = fmt.Sprintf("%s%s", strTotal, string(tbuf[:n]))
+
+				logger.Debug("ready after read: ", ct)
+				if ok, retAry := checkFullReq(strTotal); ok {
+					tmpReqStr := parseReq(retAry)
+					this.reqChan <- &DataReq{
+						reqStr: tmpReqStr,
+						conn:   conn,
+					}
+					logger.Debug("append len:", len(this.reqChan), ", str:", tmpReqStr, ",ct:", ct)
+					break
+				} else {
+					logger.Debug("buf: %s not full, ct", string(tbuf[:n]), ct)
+				}
 			}
-			logger.Debug("append len:", len(this.reqChan), ", str:", tmpReqStr)
-		} else {
-			logger.Debug("buf: %s not full", string(buf))
-		}
+		}(counter)
 	}
 	logger.Info("web thread exited...")
 }

@@ -2,6 +2,8 @@ package db
 
 import (
 	"github.com/garyburd/redigo/redis"
+	//"io"
+	//"log"
 	"strconv"
 	"time"
 )
@@ -25,7 +27,15 @@ func NewDbop() *Dbop {
 	return retObj
 }
 
+var g_dbid string
+var g_addr string
+var g_pwd string
+
 func (this *Dbop) Start(dbid string, addr string, pwd string) {
+	g_dbid = dbid
+	g_addr = addr
+	g_pwd = pwd
+
 	client, err := redis.DialTimeout("tcp", addr, time.Duration(g_connect_timeout_sec)*time.Second,
 		time.Duration(g_connect_timeout_sec)*time.Second, time.Duration(g_write_timeout_sec)*time.Second)
 	if err != nil {
@@ -33,11 +43,13 @@ func (this *Dbop) Start(dbid string, addr string, pwd string) {
 		return
 	}
 
-	_, err = client.Do("AUTH", pwd)
-	if err != nil {
-		panic(err)
-		client.Close()
-		return
+	if pwd != "" {
+		_, err = client.Do("AUTH", pwd)
+		if err != nil {
+			panic(err)
+			client.Close()
+			return
+		}
 	}
 
 	_, err = client.Do("SELECT", dbid)
@@ -52,10 +64,23 @@ func (this *Dbop) Start(dbid string, addr string, pwd string) {
 
 func (this *Dbop) DoDbTask(opCmd string, args ...interface{}) (interface{}, error) {
 	return this.client.Do(opCmd, args...)
+	/*
+		ret, ok := this.client.Do(opCmd, args...)
+		if ok != nil {
+			log.Println("dodbtask :", ok, ",", ok.Error())
+		}
+		if ok != nil && ok.Error() == "EOF" {
+			log.Println("DoDbTask reconn")
+			this.Start(g_dbid, g_addr, g_pwd)
+			//todo cache the cmd operate
+			return "", nil
+		}
+		return ret, nil
+	*/
 }
 
 func (this *Dbop) InitDb(val string) uint64 {
-	nowKey := "login_acc_rid"
+	nowKey := "login_max_rid"
 	ret, err := this.DoDbTask("EXISTS", nowKey)
 	if err != nil {
 		panic(err)
