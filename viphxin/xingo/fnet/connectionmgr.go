@@ -23,15 +23,15 @@ func (this *ConnectionMgr) Add(conn iface.Iconnection) {
 func (this *ConnectionMgr) Remove(conn iface.Iconnection) error {
 	this.conMrgLock.Lock()
 	defer this.conMrgLock.Unlock()
-	_, ok := this.connections[conn.GetSessionId()]
+	ssid := conn.GetSessionId()
+	_, ok := this.connections[ssid]
 	if ok {
-		delete(this.connections, conn.GetSessionId())
-		logger.Info(len(this.connections))
+		delete(this.connections, ssid)
+		logger.Info(len(this.connections), "del ssid: ", ssid)
 		return nil
 	} else {
 		return errors.New("not found!!")
 	}
-
 }
 
 func (this *ConnectionMgr) Get(sid uint32) (iface.Iconnection, error) {
@@ -39,7 +39,7 @@ func (this *ConnectionMgr) Get(sid uint32) (iface.Iconnection, error) {
 	defer this.conMrgLock.Unlock()
 	v, ok := this.connections[sid]
 	if ok {
-		delete(this.connections, sid)
+		//delete(this.connections, sid)
 		return v, nil
 	} else {
 		return nil, errors.New("not found!!")

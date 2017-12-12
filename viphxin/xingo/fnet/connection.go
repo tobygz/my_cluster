@@ -63,7 +63,7 @@ func (this *Connection) Stop() {
 	//掉线回调放到go内防止，掉线回调处理出线死锁
 	go this.Protoc.OnConnectionLost(this)
 	//remove to connectionmsg
-	utils.GlobalObject.TcpServer.GetConnectionMgr().Remove(this)
+	//utils.GlobalObject.TcpServer.GetConnectionMgr().Remove(this)
 	close(this.ExtSendChan)
 	close(this.SendBuffChan)
 
