@@ -55,7 +55,7 @@ func (this *Dbop) DoDbTask(opCmd string, args ...interface{}) (interface{}, erro
 }
 
 func (this *Dbop) InitDb(val string) uint64 {
-	nowKey := "login_acc_rid"
+	nowKey := "login_max_rid"
 	ret, err := this.DoDbTask("EXISTS", nowKey)
 	if err != nil {
 		panic(err)
