@@ -287,7 +287,8 @@ func (this *ClusterServer) StartClusterServer() {
 func (this *ClusterServer) WaitSignal() {
 	// close
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGUSR1)
+	//signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGUSR1)
+	signal.Notify(c, os.Interrupt, os.Kill)
 	sig := <-c
 
 	logger.Info(fmt.Sprintf("server exit. signal: [%s]", sig))
@@ -435,5 +436,12 @@ func (this *ClusterServer) AddHttpRouter(router interface{}) {
 }
 
 func (this *ClusterServer) OnClose() {
-	syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
+	//syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
+	//syscall.Kill(syscall.Getpid(), os.Interrupt)
+	p, err := os.FindProcess(syscall.Getpid())
+	if err != nil {
+		panic(err)
+		return
+	}
+	p.Signal(os.Interrupt)
 }
