@@ -38,6 +38,8 @@ var g_dbid string
 var g_addr string
 var g_pwd string
 
+var g_timer interface{}
+
 func (this *Dbop) Start(dbid string, addr string, pwd string) {
 	g_dbid = dbid
 	g_addr = addr
@@ -67,6 +69,11 @@ func (this *Dbop) Start(dbid string, addr string, pwd string) {
 	}
 	this.client = client
 	this.isConn = true
+	if g_timer == nil {
+		g_timer = time.AfterFunc(time.Minute*1, func() {
+			client.Do("PING")
+		})
+	}
 }
 
 var reconn_ct int = 0
