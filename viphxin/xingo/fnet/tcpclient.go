@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/utils"
 	"net"
 	"sync"
 	"time"
@@ -63,6 +64,11 @@ func (this *TcpClient) Start() {
 }
 
 func (this *TcpClient) Stop(isforce bool) {
+
+	if utils.GlobalObject.IsClose {
+		isforce = true
+	}
+
 	if this.maxRetry == 0 || isforce {
 		this.protoc.OnConnectionLost(this)
 	} else {

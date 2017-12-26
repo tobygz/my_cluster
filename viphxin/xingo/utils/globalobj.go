@@ -6,6 +6,7 @@ import (
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/timer"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -50,6 +51,7 @@ type GlobalObj struct {
 	UdpIp            string
 	UdpPort          int
 	WebObj           iface.Iweb
+	IsClose          bool
 }
 
 func (this *GlobalObj) IncMaxRid() uint64 {
@@ -70,6 +72,10 @@ func (this *GlobalObj) GetFrequency() (int, string) {
 			return 0, ""
 		}
 	}
+}
+
+func (this *GlobalObj) IsWin() bool {
+	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
 }
 
 func (this *GlobalObj) IsGate() bool {
@@ -102,6 +108,7 @@ func init() {
 		MaxSendChanLen:         1024,
 		FrameSpeed:             30,
 		EnableFlowLog:          false,
+		IsClose:                false,
 		TimeChan:               make(chan *timer.Timer),
 		OnConnectioned:         func(fconn iface.Iconnection) {},
 		OnClosed:               func(fconn iface.Iconnection) {},

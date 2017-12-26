@@ -273,6 +273,10 @@ func (this *ClusterServer) StartClusterServer() {
 	}
 	// close
 	this.WaitSignal()
+	this.FinnalClose()
+}
+
+func (this *ClusterServer) FinnalClose() {
 	this.MasterObj.Stop(true)
 	if this.RootServer != nil {
 		this.RootServer.Stop()
@@ -436,12 +440,15 @@ func (this *ClusterServer) AddHttpRouter(router interface{}) {
 }
 
 func (this *ClusterServer) OnClose() {
-	//syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
-	//syscall.Kill(syscall.Getpid(), os.Interrupt)
-	p, err := os.FindProcess(syscall.Getpid())
-	if err != nil {
-		panic(err)
-		return
+	if utils.GlobalObject.IsWin() == false {
+		p, err := os.FindProcess(syscall.Getpid())
+		if err != nil {
+			panic(err)
+			return
+		}
+		p.Signal(os.Interrupt)
+	} else {
+		this.FinnalClose()
+		os.Exit(0)
 	}
-	p.Signal(os.Interrupt)
 }
