@@ -4,6 +4,7 @@ import (
 	"github.com/viphxin/xingo/cluster"
 	"github.com/viphxin/xingo/clusterserver"
 	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/utils"
 	"os"
 	"strings"
 )
@@ -51,6 +52,8 @@ func (this *MasterRpc) TakeProxy(request *cluster.RpcRequest) (response map[stri
 func (this *MasterRpc) Shutdown(request *cluster.RpcRequest) {
 	name := request.Rpcdata.Args[0].(string)
 	logger.Info("node " + name + " says shutdown.")
+
+	utils.GlobalObject.IsClose = true
 
 	for _, child := range clusterserver.GlobalMaster.Childs.GetChilds() {
 		if strings.Contains(child.GetName(), "gate") {

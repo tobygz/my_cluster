@@ -5,6 +5,7 @@ import (
 	"github.com/viphxin/xingo/cluster"
 	"github.com/viphxin/xingo/clusterserver"
 	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/utils"
 )
 
 type ChildRpc struct {
@@ -22,6 +23,7 @@ func (this *ChildRpc) RootTakeProxy(request *cluster.RpcRequest) {
 func (this *ChildRpc) Doshutdown(request *cluster.RpcRequest) {
 	rname := request.Rpcdata.Args[0].(string)
 	//utils.GlobalObject.OnServerStop()
+	utils.GlobalObject.IsClose = true
 	logger.Info(fmt.Sprintf("root node %s send shutdown...", rname))
 	clusterserver.GlobalClusterServer.OnClose()
 }
