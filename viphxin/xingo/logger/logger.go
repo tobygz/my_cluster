@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -77,6 +78,23 @@ func SetConsole(isConsole bool) {
 
 func SetLevel(_level LEVEL) {
 	logLevel = _level
+}
+
+func Goid() int {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("panic recover:panic info:%v", err)
+		}
+	}()
+
+	var buf [64]byte
+	n := runtime.Stack(buf[:], false)
+	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
+	id, err := strconv.Atoi(idField)
+	if err != nil {
+		panic(fmt.Sprintf("cannot get goroutine id: %v", err))
+	}
+	return id
 }
 
 func SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT) {
@@ -169,6 +187,7 @@ func Trace(v ...interface{}) {
 	if logLevel <= TRACE {
 		if logObj != nil {
 			logObj.lg.Output(2, fmt.Sprintln("trace", v))
+			//logObj.lg.Output(2, fmt.Sprintln("trace", v, Goid()))
 		} else {
 			console("trace", v)
 		}
@@ -188,6 +207,7 @@ func Debug(v ...interface{}) {
 	if logLevel <= DEBUG {
 		if logObj != nil {
 			logObj.lg.Output(2, fmt.Sprintln("debug", v))
+			//logObj.lg.Output(2, fmt.Sprintln("debug", v, Goid()))
 		} else {
 			console("debug", v)
 		}
@@ -205,6 +225,7 @@ func Info(v ...interface{}) {
 	if logLevel <= INFO {
 		if logObj != nil {
 			logObj.lg.Output(2, fmt.Sprintln("info", v))
+			//logObj.lg.Output(2, fmt.Sprintln("info", v, Goid()))
 		} else {
 			console("info", v)
 		}
@@ -223,6 +244,7 @@ func Warn(v ...interface{}) {
 	if logLevel <= WARN {
 		if logObj != nil {
 			logObj.lg.Output(2, fmt.Sprintln("warn", v))
+			//logObj.lg.Output(2, fmt.Sprintln("warn", v, Goid()))
 		} else {
 			console("warn", v)
 		}
@@ -240,6 +262,7 @@ func Error(v ...interface{}) {
 	if logLevel <= ERROR {
 		if logObj != nil {
 			logObj.lg.Output(2, fmt.Sprintln("error", v))
+			//logObj.lg.Output(2, fmt.Sprintln("error", v, Goid()))
 		} else {
 			console("error", v)
 		}
@@ -257,6 +280,7 @@ func Fatal(v ...interface{}) {
 	if logLevel <= FATAL {
 		if logObj != nil {
 			logObj.lg.Output(2, fmt.Sprintln("fatal", v))
+			//logObj.lg.Output(2, fmt.Sprintln("fatal", v, Goid()))
 		} else {
 			console("fatal", v)
 		}

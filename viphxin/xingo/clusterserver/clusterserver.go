@@ -8,9 +8,9 @@ import (
 	"github.com/viphxin/xingo/fserver"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/web"
-	//	"github.com/viphxin/xingo/udpserv"
+	"github.com/viphxin/xingo/udpserv"
 	"github.com/viphxin/xingo/utils"
+	"github.com/viphxin/xingo/web"
 	"net/http"
 	"os"
 	"os/signal"
@@ -259,7 +259,7 @@ func (this *ClusterServer) StartClusterServer() {
 	this.ConnectToMaster()
 
 	if utils.GlobalObject.IsGate() {
-		//udpserv.NewUdpServ(serverconf.UdpPort)
+		udpserv.NewUdpServ(serverconf.UdpPort)
 	}
 
 	logger.Info("xingo cluster start success.")
