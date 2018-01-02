@@ -6,7 +6,6 @@ import (
 	"github.com/viphxin/xingo/logger"
 	"os"
 	"strings"
-	"time"
 )
 
 type MasterRpc struct {
@@ -59,14 +58,14 @@ func (this *MasterRpc) Shutdown(request *cluster.RpcRequest) {
 			child.CallChildNotForResult("Doshutdown", "master")
 		}
 	}
-	time.AfterFunc(time.Second*5, func() {
-		for _, child := range clusterserver.GlobalMaster.Childs.GetChilds() {
-			if strings.Contains(child.GetName(), "gate") == false {
-				logger.Info("shutdown node :" + child.GetName())
-				child.CallChildNotForResult("Doshutdown", "master")
-			}
+	//time.AfterFunc(time.Second*5, func() {
+	for _, child := range clusterserver.GlobalMaster.Childs.GetChilds() {
+		if strings.Contains(child.GetName(), "gate") == false {
+			logger.Info("shutdown node :" + child.GetName())
+			child.CallChildNotForResult("Doshutdown", "master")
 		}
-		clusterserver.GlobalClusterServer.OnClose()
-		os.Exit(0)
-	})
+	}
+	clusterserver.GlobalClusterServer.OnClose()
+	os.Exit(0)
+	//})
 }

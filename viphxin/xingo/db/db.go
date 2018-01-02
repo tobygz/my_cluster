@@ -3,6 +3,7 @@ package db
 import (
 	"github.com/garyburd/redigo/redis"
 	//"io"
+	"github.com/viphxin/xingo/utils"
 	"log"
 	"strconv"
 	"time"
@@ -38,7 +39,7 @@ var g_dbid string
 var g_addr string
 var g_pwd string
 
-var g_timer interface{}
+var g_timer bool = false
 
 func (this *Dbop) Start(dbid string, addr string, pwd string) {
 	g_dbid = dbid
@@ -69,10 +70,11 @@ func (this *Dbop) Start(dbid string, addr string, pwd string) {
 	}
 	this.client = client
 	this.isConn = true
-	if g_timer == nil {
-		g_timer = time.AfterFunc(time.Minute*1, func() {
+	if g_timer == false {
+		g_timer = true
+		utils.GlobalObject.TcpServer.CallLoop(time.Second, func(args ...interface{}) {
 			client.Do("PING")
-		})
+		}, nil)
 	}
 }
 
@@ -98,9 +100,9 @@ func (this *Dbop) DoDbTask(opCmd string, args ...interface{}) (interface{}, erro
 			}
 			this.OpPool <- tmpOpSt
 
-			time.AfterFunc(time.Second*5, func() {
+			utils.GlobalObject.TcpServer.CallLater(5*time.Second, func(args ...interface{}) {
 				this.ReConn()
-			})
+			}, nil)
 
 		}
 		//todo cache the cmd operate
@@ -115,7 +117,7 @@ func (this *Dbop) ReConn() {
 
 	if reconn_ct >= 10 {
 		log.Println("fatal error: ", reconn_ct, ",")
-		time.AfterFunc(time.Second*5, func() {
+		utils.GlobalObject.TcpServer.CallLoop(5*time.Second, func(args ...interface{}) {
 			reconn_ct = 0
 			this.ReConn()
 		})

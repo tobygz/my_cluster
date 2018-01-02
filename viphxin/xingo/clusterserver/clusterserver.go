@@ -130,7 +130,6 @@ func NewClusterServer(name, path string) *ClusterServer {
 		//      utils.GlobalObject.RpcCProtoc.InitWorker(int32(utils.GlobalObject.PoolSize))
 	}
 
-	GlobalClusterServer.StartConnectDb()
 	return GlobalClusterServer
 }
 
@@ -159,6 +158,9 @@ func (this *ClusterServer) StartTcpServer(funcCb func(...interface{}), frameMs u
 		this.RootServer.Start()
 	}
 
+	if utils.GlobalObject.IsGate() {
+		GlobalClusterServer.StartConnectDb()
+	}
 	if frameMs != 0 && this.RootServer != nil {
 		tmDu, _ := time.ParseDuration(fmt.Sprintf("%dms", frameMs))
 		this.RootServer.CallLoop(tmDu, funcCb)

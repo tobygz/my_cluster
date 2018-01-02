@@ -125,10 +125,12 @@ func (this *Server) AddRouter(router interface{}) {
 	utils.GlobalObject.Protoc.GetMsgHandle().AddRouter(router)
 }
 
+/*
 func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
 	delayTask := timer.NewTimer(durations, f, args)
 	delayTask.Run()
 }
+*/
 
 func (this *Server) CallWhen(ts string, f func(v ...interface{}), args ...interface{}) {
 	loc, err_loc := time.LoadLocation("Local")
@@ -155,6 +157,14 @@ func (this *Server) CallLoop(msec uint32, f func(v ...interface{}), args ...inte
 }
 
 */
+
+func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
+	go func() {
+		delayTask := timer.NewTimer(durations, f, args)
+		time.Sleep(delayTask.GetDurations())
+		utils.GlobalObject.TimeChan <- delayTask
+	}()
+}
 
 func (this *Server) CallLoop(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
 	go func() {
