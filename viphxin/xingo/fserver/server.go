@@ -28,7 +28,6 @@ func init() {
 type Server struct {
 	Port          int
 	MaxConn       int
-	GenNum        uint32
 	sessIdPool    chan uint32
 	connectionMgr iface.Iconnectionmgr
 	timeChan      *timer.Timer
@@ -61,12 +60,11 @@ func (this *Server) initSessIdPool() {
 }
 
 func (this *Server) handleConnection(conn *net.TCPConn) {
-	//this.GenNum += 1
-	this.GenNum = <-this.sessIdPool
+	genNum := <-this.sessIdPool
 	conn.SetNoDelay(true)
 	conn.SetKeepAlive(true)
 	// conn.SetDeadline(time.Now().Add(time.Minute * 2))
-	fconn := fnet.NewConnection(conn, this.GenNum, utils.GlobalObject.Protoc)
+	fconn := fnet.NewConnection(conn, genNum, utils.GlobalObject.Protoc)
 	fconn.Start()
 }
 
