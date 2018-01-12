@@ -33,6 +33,9 @@ type UdpServ struct {
 var GlobalUdpServ *UdpServ = nil
 
 func NewUdpServ(port int) {
+	if GlobalUdpServ != nil {
+		return
+	}
 	GlobalUdpServ = &UdpServ{
 		dataChan:     make(chan *DataReq, 32),
 		sendChan:     make(chan *DataReq, 1024),

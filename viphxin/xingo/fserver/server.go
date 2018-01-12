@@ -65,7 +65,7 @@ func (this *Server) handleConnection(conn *net.TCPConn) {
 	conn.SetKeepAlive(true)
 	// conn.SetDeadline(time.Now().Add(time.Minute * 2))
 	fconn := fnet.NewConnection(conn, genNum, utils.GlobalObject.Protoc)
-	fconn.Start()
+	go fconn.Start()
 }
 
 func (this *Server) Start() {
@@ -93,7 +93,7 @@ func (this *Server) Start() {
 			if this.connectionMgr.Len() >= utils.GlobalObject.MaxConn {
 				conn.Close()
 			} else {
-				go this.handleConnection(conn)
+				this.handleConnection(conn)
 			}
 		}
 	}()
