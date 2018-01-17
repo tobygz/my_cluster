@@ -34,16 +34,12 @@ func (this *MsgHandle) DeliverToMsgQueue(pkg interface{}) {
 	data := pkg.(*PkgAll)
 
 	//index := uint32(data.Pid) % uint32(utils.GlobalObject.PoolSize)
-	this.Raw_DeliverToMsgQueue(data, 0)
-	/*
-		if data.Pid == 0 {
-			index := uint32(data.Fconn.GetSessionId()) % uint32(utils.GlobalObject.PoolSize)
-			this.Raw_DeliverToMsgQueue(data, index)
-		} else {
-			index := uint32(data.Pid) % uint32(utils.GlobalObject.PoolSize)
-			this.Raw_DeliverToMsgQueue(data, index)
-		}
-	*/
+	if utils.GlobalObject.IsGate() {
+		this.Raw_DeliverToMsgQueue(data, 0)
+	} else if utils.GlobalObject.IsNet() {
+		index := uint32(data.Fconn.GetSessionId()) % uint32(utils.GlobalObject.PoolSize)
+		this.Raw_DeliverToMsgQueue(data, index)
+	}
 }
 
 func (this *MsgHandle) Raw_DeliverToMsgQueue(data *PkgAll, index uint32) {
@@ -143,14 +139,28 @@ func (this *MsgHandle) NetWorkerLoop(i int, c chan *PkgAll) {
 		logger.Info(fmt.Sprintf("NetWorkerLoop init thread pool %d.", index))
 		var msgId uint32
 		var pid uint32
+
+		var st uint32
+
+		lastSec := utils.GetFastSec()
+		lenVal := 0
+
 		for {
+			st = utils.GetFastSec()
+			if st-lastSec >= uint32(10) {
+				logger.Profile(fmt.Sprintf("NetWorkerLoop index: %d taskQueue leftLen: %d lenVal: %d qps: %d", index, len(taskQueue), lenVal, uint32(lenVal/10)))
+				lastSec = st
+				lenVal = 0
+			}
+			lenVal++
+
 			select {
 			case data := <-taskQueue:
 				if f, ok := this.Apis[data.Pdata.MsgId]; ok {
 					//存在
 					st := time.Now()
 
-					logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
+					//logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
 					//f.Call([]reflect.Value{reflect.ValueOf(data)})
 					msgId = data.Pdata.MsgId
 					pid = data.Pid
@@ -223,15 +233,17 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 }
 
 func (this *MsgHandle) StartWorkerLoop(poolSize int) {
-	for i := 0; i < poolSize; i += 1 {
+
+	if utils.GlobalObject.IsGate() {
 		c := make(chan *PkgAll, utils.GlobalObject.MaxWorkerLen)
-		this.TaskQueue[i] = c
-		if utils.GlobalObject.IsGate() {
-			this.GateWorkerLoop(i, c)
-		} else {
+		this.TaskQueue[0] = c
+		this.GateWorkerLoop(0, c)
+	} else {
+		for i := 0; i < int(utils.GlobalObject.PoolSize); i += 1 {
+			c := make(chan *PkgAll, utils.GlobalObject.MaxWorkerLen)
+			this.TaskQueue[i] = c
 			this.NetWorkerLoop(i, c)
 		}
-
 	}
 }
 

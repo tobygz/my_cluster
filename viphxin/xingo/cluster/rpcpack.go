@@ -28,6 +28,11 @@ type RpcRequest struct {
 	Rpcdata *RpcData
 }
 
+func init() {
+	gob.Register(RpcData{})
+	gob.Register([]interface{}{})
+}
+
 type RpcDataPack struct{}
 
 func NewRpcDataPack() *RpcDataPack {
@@ -84,8 +89,6 @@ func (this *RpcDataPack) Unpack(headdata []byte) (interface{}, error) {
 //}
 
 func (this *RpcDataPack) Pack(msgId uint32, pkg interface{}) (out []byte, err error) {
-	gob.Register(RpcData{})
-	gob.Register([]interface{}{})
 	outbuff := bytes.NewBuffer([]byte{})
 	// 进行编码
 	databuff := bytes.NewBuffer([]byte{})

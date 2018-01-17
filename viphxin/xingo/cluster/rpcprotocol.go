@@ -30,7 +30,7 @@ func (this *RpcServerProtocol) GetDataPack() iface.Idatapack {
 	return this.rpcDatapack
 }
 
-func (this *RpcServerProtocol) ManualMsgPush(msgId uint32, data []byte, pid uint32) {
+func (this *RpcServerProtocol) ManualMsgPush(msgId uint32, data []byte, pid uint32, fconn iface.Iconnection) {
 	logger.Info("invalid ManualMsgPush rpcprotocol, fatal error !")
 }
 

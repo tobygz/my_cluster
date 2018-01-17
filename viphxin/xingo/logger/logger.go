@@ -4,6 +4,7 @@ package logger
 https://github.com/donnie4w
 */
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -48,6 +49,7 @@ const (
 	WARN
 	ERROR
 	FATAL
+	PROFILE
 	OFF
 )
 
@@ -66,6 +68,7 @@ type _FILE struct {
 	mu       *sync.RWMutex
 	logfile  *os.File
 	lg       *log.Logger
+	buf      *bufio.Writer
 }
 
 func SetPrefix(title string) {
@@ -133,10 +136,12 @@ func SetRollingDaily(fileDir, fileName string) {
 
 	if !logObj.isMustRename() {
 		logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
-		logObj.lg = log.New(logObj.logfile, "", log.Ldate|log.Ltime|log.Lshortfile)
+		logObj.buf = bufio.NewWriterSize(logObj.logfile, 4096*1024)
+		logObj.lg = log.New(logObj.buf, "", log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
 		logObj.rename()
 	}
+	go fileMonitor()
 }
 
 func mkdirlog(dir string) (e error) {
@@ -175,9 +180,6 @@ func catchError() {
 }
 
 func Trace(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
-	}
 	defer catchError()
 	if logObj != nil {
 		logObj.mu.RLock()
@@ -195,9 +197,6 @@ func Trace(v ...interface{}) {
 }
 
 func Debug(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
-	}
 	defer catchError()
 	if logObj != nil {
 		logObj.mu.RLock()
@@ -214,9 +213,6 @@ func Debug(v ...interface{}) {
 	}
 }
 func Info(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
-	}
 	defer catchError()
 	if logObj != nil {
 		logObj.mu.RLock()
@@ -232,9 +228,6 @@ func Info(v ...interface{}) {
 	}
 }
 func Warn(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
-	}
 	defer catchError()
 	if logObj != nil {
 		logObj.mu.RLock()
@@ -251,9 +244,6 @@ func Warn(v ...interface{}) {
 	}
 }
 func Error(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
-	}
 	defer catchError()
 	if logObj != nil {
 		logObj.mu.RLock()
@@ -268,10 +258,24 @@ func Error(v ...interface{}) {
 		}
 	}
 }
-func Fatal(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
+
+func Profile(v string) {
+	defer catchError()
+	if logObj != nil {
+		logObj.mu.RLock()
+		defer logObj.mu.RUnlock()
 	}
+	if logLevel <= PROFILE {
+		if logObj != nil {
+			logObj.lg.Output(2, fmt.Sprintln("profile", v))
+			//logObj.lg.Output(2, fmt.Sprintln("fatal", v, Goid()))
+		} else {
+			console("profile", v)
+		}
+	}
+}
+
+func Fatal(v ...interface{}) {
 	defer catchError()
 	if logObj != nil {
 		logObj.mu.RLock()
@@ -357,7 +361,7 @@ func isExist(path string) bool {
 }
 
 func fileMonitor() {
-	timer := time.NewTicker(1 * time.Second)
+	timer := time.NewTicker(10 * time.Second)
 	for {
 		select {
 		case <-timer.C:

@@ -88,6 +88,10 @@ func (this *GlobalObj) IsAdmin() bool {
 	return strings.Contains(this.Name, "admin")
 }
 
+func (this *GlobalObj) IsMaster() bool {
+	return this.Name == "master"
+}
+
 var GlobalObject *GlobalObj
 
 func init() {

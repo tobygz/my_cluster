@@ -36,7 +36,7 @@ func NewProtocol() *Protocol {
 	}
 }
 
-func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint32) {
+func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint32, fconn iface.Iconnection) {
 	pData := &PkgData{
 		Len:   uint32(len(data)),
 		MsgId: msgId,
@@ -45,7 +45,9 @@ func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint32) {
 	pkgAll := &PkgAll{
 		Pdata: pData,
 		Pid:   pid,
+		Fconn: fconn,
 	}
+
 	this.msghandle.DeliverToMsgQueue(pkgAll)
 }
 
@@ -120,6 +122,9 @@ func (this *Protocol) OnConnectionLost(fconn iface.Iconnection) {
 
 func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 	logger.Info("start receive data from socket...")
+	readCt := uint32(0)
+	lastSec := utils.GetFastSec()
+	st := uint32(0)
 	for {
 		//频率控制
 		err := this.DoFrequencyControl(fconn)
@@ -153,7 +158,15 @@ func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 			}
 		}
 
-		logger.Debug(fmt.Sprintf("msg id :%d, data len: %d", pkg.MsgId, pkg.Len))
+		readCt++
+		st = utils.GetFastSec()
+		if st-lastSec >= uint32(10) {
+			logger.Profile(fmt.Sprintf("total: %d, qps: %v", readCt, readCt/10))
+			lastSec = st
+			readCt = uint32(0)
+		}
+
+		//logger.FatalS(fmt.Sprintf("msg id :%d, data len: %d", pkg.MsgId, pkg.Len))
 		if utils.GlobalObject.IsUsePool {
 			this.msghandle.DeliverToMsgQueue(&PkgAll{
 				Pdata: pkg,

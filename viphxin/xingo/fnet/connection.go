@@ -1,6 +1,7 @@
 package fnet
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/viphxin/xingo/iface"
@@ -22,16 +23,20 @@ type Connection struct {
 
 	SendBuffChan chan []byte
 	ExtSendChan  chan bool
+	lastTick     uint32
+	gateChild    iface.IChild
 }
 
 func NewConnection(conn *net.TCPConn, sessionId uint32, protoc iface.IServerProtocol) *Connection {
 	fconn := &Connection{
-		Conn:         conn,
-		isClosed:     false,
-		SessionId:    sessionId,
-		Protoc:       protoc,
-		PropertyBag:  make(map[string]interface{}),
-		SendBuffChan: make(chan []byte, utils.GlobalObject.MaxSendChanLen),
+		Conn:        conn,
+		isClosed:    false,
+		SessionId:   sessionId,
+		Protoc:      protoc,
+		lastTick:    utils.GetFastSec(),
+		PropertyBag: make(map[string]interface{}),
+		//SendBuffChan: make(chan []byte, utils.GlobalObject.MaxSendChanLen),
+		SendBuffChan: make(chan []byte, 10240),
 		ExtSendChan:  make(chan bool, 1),
 	}
 	//set  connection time
@@ -43,8 +48,20 @@ func (this *Connection) Start() {
 	//add to connectionmsg
 	utils.GlobalObject.TcpServer.GetConnectionMgr().Add(this)
 	this.Protoc.OnConnectionMade(this)
-	this.StartWriteThread()
+	if utils.GlobalObject.IsMaster() == false {
+		//this.StartWriteThread()
+	} else {
+		this.StartWriteThread1()
+	}
 	this.Protoc.StartReadThread(this)
+}
+
+func (this *Connection) GetLastTick() uint32 {
+	return this.lastTick
+}
+
+func (this *Connection) UpdateLastTick() {
+	this.lastTick = utils.GetFastSec()
 }
 
 func (this *Connection) Stop() {
@@ -110,8 +127,8 @@ func (this *Connection) RemoveProperty(key string) {
 
 func (this *Connection) Send(data []byte) error {
 	// 防止将Send放在go内造成的多线程冲突问题
-	this.sendtagGuard.Lock()
-	defer this.sendtagGuard.Unlock()
+	//this.sendtagGuard.Lock()
+	//defer this.sendtagGuard.Unlock()
 
 	if !this.isClosed {
 		if _, err := this.Conn.Write(data); err != nil {
@@ -155,7 +172,55 @@ func (this *Connection) LostConnection() {
 	logger.Info("LostConnection==============!!!!!!!!!!!!!!!!!!!!!!!!!")
 }
 
+func getMs() int64 {
+	return time.Now().UnixNano() / 1000000
+}
 func (this *Connection) StartWriteThread() {
+	go func() {
+		logger.Debug("start send data from channel...")
+		total := uint32(0)
+		nowMs := getMs()
+		lMs := getMs()
+
+		nowSec := utils.GetFastSec()
+		lSec := nowSec
+		pkg_chan := make(chan []byte, 102400)
+		for {
+			data := <-this.SendBuffChan
+
+			pkg_chan <- data
+			nowMs = getMs()
+			if nowMs-lMs < 50 && false {
+				continue
+			}
+			lMs = nowMs
+			logger.Fatal("CallRpcNotForResult conn consume sendbuff len: ", len(this.SendBuffChan), " now send:", len(pkg_chan))
+
+			slc := make([][]byte, len(pkg_chan))
+			for index := 0; index < len(pkg_chan); index++ {
+				slc[index] = <-pkg_chan
+			}
+			sep := []byte("")
+			mem := bytes.Join(slc, sep)
+
+			n, err := this.Conn.Write(mem)
+			if err != nil {
+				logger.Info("send data error exit...")
+				return
+			}
+			total = total + uint32(n)
+
+			nowSec = utils.GetFastSec()
+			if nowSec-lSec >= 1 {
+				logger.Fatal("connection sendio len: ", total, " sendbuflen:", len(this.SendBuffChan))
+				lSec = nowSec
+				total = 0
+			}
+		}
+	}()
+}
+
+func (this *Connection) StartWriteThread1() {
 	go func() {
 		logger.Debug("start send data from channel...")
 		for {
