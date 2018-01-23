@@ -332,7 +332,7 @@ func (this *ClusterServer) ConnectToRemote(rname string) {
 		//处理master掉线，重新通知的情况
 		if _, err := this.GetRemote(rname); err != nil {
 			rserver := fnet.NewTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc)
-			logger.Info("ConnectToRemote add name: %s", rname)
+			logger.Info("ConnectToRemote add name: ", rname)
 			this.RemoteNodesMgr.AddChild(rname, rserver)
 			rserver.Start()
 			rserver.SetProperty("remote", rname)
