@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,8 @@ type MsgHandle struct {
 	PoolSize  int32
 	TaskQueue []chan *PkgAll
 	Apis      map[uint32]reflect.Value
+	QpsObj    *utils.QpsMgr
+	sync.RWMutex
 }
 
 func NewMsgHandle() *MsgHandle {
@@ -26,6 +29,7 @@ func NewMsgHandle() *MsgHandle {
 		PoolSize:  utils.GlobalObject.PoolSize,
 		TaskQueue: make([]chan *PkgAll, utils.GlobalObject.PoolSize),
 		Apis:      make(map[uint32]reflect.Value),
+		QpsObj:    utils.NewQps(time.Second),
 	}
 }
 
@@ -33,21 +37,17 @@ func NewMsgHandle() *MsgHandle {
 func (this *MsgHandle) DeliverToMsgQueue(pkg interface{}) {
 	data := pkg.(*PkgAll)
 
-	//index := uint32(data.Pid) % uint32(utils.GlobalObject.PoolSize)
-	this.Raw_DeliverToMsgQueue(data, 0)
-	/*
-		if data.Pid == 0 {
-			index := uint32(data.Fconn.GetSessionId()) % uint32(utils.GlobalObject.PoolSize)
-			this.Raw_DeliverToMsgQueue(data, index)
-		} else {
-			index := uint32(data.Pid) % uint32(utils.GlobalObject.PoolSize)
-			this.Raw_DeliverToMsgQueue(data, index)
-		}
-	*/
+	if utils.GlobalObject.IsGate() {
+		this.Raw_DeliverToMsgQueue(data, 0)
+	} else if utils.GlobalObject.IsNet() {
+		index := uint32(data.Fconn.GetSessionId()) % uint32(utils.GlobalObject.PoolSize)
+		this.Raw_DeliverToMsgQueue(data, index)
+	}
 }
 
 func (this *MsgHandle) Raw_DeliverToMsgQueue(data *PkgAll, index uint32) {
-	//index := rand.Int31n(utils.GlobalObject.PoolSize)
+	//this.Lock()
+	//defer this.Unlock()
 	taskQueue := this.TaskQueue[index]
 	if utils.GlobalObject.EnableFlowLog {
 		logger.Debug(fmt.Sprintf("add to pool : %d", index))
@@ -60,12 +60,8 @@ func (this *MsgHandle) DoMsgFromGoRoutine(pkg interface{}) {
 	go func() {
 		if f, ok := this.Apis[data.Pdata.MsgId]; ok {
 			//存在
-			st := time.Now()
 			f.Call([]reflect.Value{reflect.ValueOf(data)})
 
-			if utils.GlobalObject.EnableFlowLog {
-				logger.Debug(fmt.Sprintf("Api_%d cost total time: %f ms", data.Pdata.MsgId, time.Now().Sub(st).Seconds()*1000))
-			}
 		} else {
 			logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
 		}
@@ -129,13 +125,6 @@ func (this *MsgHandle) AddRouter_raw(router interface{}) {
 		logger.Info(fmt.Sprintf("msghandle add api idx: %d name:%s", index, name))
 	}
 
-	//exec test
-	// for i := 0; i < 100; i += 1 {
-	// 	Apis[1].Call([]reflect.Value{reflect.ValueOf("huangxin"), reflect.ValueOf(router)})
-	// 	Apis[2].Call([]reflect.Value{})
-	// }
-	// fmt.Println(this.Apis)
-	// this.Apis[2].Call([]reflect.Value{reflect.ValueOf(&PkgAll{})})
 }
 
 func (this *MsgHandle) NetWorkerLoop(i int, c chan *PkgAll) {
@@ -147,16 +136,14 @@ func (this *MsgHandle) NetWorkerLoop(i int, c chan *PkgAll) {
 			select {
 			case data := <-taskQueue:
 				if f, ok := this.Apis[data.Pdata.MsgId]; ok {
-					//存在
-					st := time.Now()
-
-					logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
-					//f.Call([]reflect.Value{reflect.ValueOf(data)})
+					//logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
 					msgId = data.Pdata.MsgId
 					pid = data.Pid
 					utils.XingoTry(f, []reflect.Value{reflect.ValueOf(data), reflect.ValueOf(msgId), reflect.ValueOf(pid)}, this.HandleError)
-					if utils.GlobalObject.EnableFlowLog {
-						logger.Debug(fmt.Sprintf("Api_%d cost total time: %f ms", data.Pdata.MsgId, time.Now().Sub(st).Seconds()*1000))
+					this.QpsObj.Add(1, 1)
+					flag, info, _ := this.QpsObj.Dump()
+					if flag {
+						logger.Prof(fmt.Sprintf("NetWorkerLoop idx: %d %s", index, info))
 					}
 				} else {
 					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
@@ -175,9 +162,6 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 		var msgId uint32
 		var pid uint32
 		for {
-			if udpserv.GlobalUdpServ == nil {
-				udpserv.NewUdpServ(utils.GlobalObject.UdpPort)
-			}
 			if utils.GlobalObject.WebObj == nil {
 				continue
 			}
@@ -185,15 +169,15 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 			case data := <-taskQueue:
 				if f, ok := this.Apis[data.Pdata.MsgId]; ok {
 					//存在
-					st := time.Now()
 
-					logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
-					//f.Call([]reflect.Value{reflect.ValueOf(data)})
+					//logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
 					msgId = data.Pdata.MsgId
 					pid = data.Pid
 					utils.XingoTry(f, []reflect.Value{reflect.ValueOf(data), reflect.ValueOf(msgId), reflect.ValueOf(pid)}, this.HandleError)
-					if utils.GlobalObject.EnableFlowLog {
-						logger.Debug(fmt.Sprintf("Api_%d cost total time: %f ms", data.Pdata.MsgId, time.Now().Sub(st).Seconds()*1000))
+					this.QpsObj.Add(1, 1)
+					flag, info, _ := this.QpsObj.Dump()
+					if flag {
+						logger.Prof(fmt.Sprintf("GateWorkerLoop idx: %d %s", index, info))
 					}
 				} else {
 					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
@@ -223,15 +207,16 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 }
 
 func (this *MsgHandle) StartWorkerLoop(poolSize int) {
-	for i := 0; i < poolSize; i += 1 {
+	if utils.GlobalObject.IsGate() {
 		c := make(chan *PkgAll, utils.GlobalObject.MaxWorkerLen)
-		this.TaskQueue[i] = c
-		if utils.GlobalObject.IsGate() {
-			this.GateWorkerLoop(i, c)
-		} else {
+		this.TaskQueue[0] = c
+		this.GateWorkerLoop(0, c)
+	} else {
+		for i := 0; i < int(utils.GlobalObject.PoolSize); i += 1 {
+			c := make(chan *PkgAll, 1)
+			this.TaskQueue[i] = c
 			this.NetWorkerLoop(i, c)
 		}
-
 	}
 }
 

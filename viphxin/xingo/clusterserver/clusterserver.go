@@ -8,7 +8,6 @@ import (
 	"github.com/viphxin/xingo/fserver"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/udpserv"
 	"github.com/viphxin/xingo/utils"
 	"github.com/viphxin/xingo/web"
 	"net/http"
@@ -59,13 +58,14 @@ func DoCCConnectionLost(fconn iface.Iclient) {
 //reconnected to master
 func ReConnectMasterCB(fconn iface.Iclient) {
 	rpc := cluster.NewChild(utils.GlobalObject.Name, GlobalClusterServer.MasterObj)
-	response, err := rpc.CallChildForResult("TakeProxy", utils.GlobalObject.Name)
+	response, err := rpc.CallChildForResult("TakeProxy", utils.GlobalObject.Name, uint32(0), uint32(0), nil)
 	if err == nil {
-		roots, ok := response.Result["roots"]
-		if ok {
-			for _, root := range roots.([]interface{}) {
-				GlobalClusterServer.ConnectToRemote(root.(string))
+		roots := strings.Split(response.Result, ",")
+		for _, root := range roots {
+			if root == "" {
+				continue
 			}
+			GlobalClusterServer.ConnectToRemote(root)
 		}
 	} else {
 		panic(fmt.Sprintf("reconnected to master error: %s", err))
@@ -258,10 +258,6 @@ func (this *ClusterServer) StartClusterServer() {
 	//master
 	this.ConnectToMaster()
 
-	if utils.GlobalObject.IsGate() {
-		udpserv.NewUdpServ(serverconf.UdpPort)
-	}
-
 	logger.Info("xingo cluster start success.")
 	if utils.GlobalObject.IsAdmin() {
 		go func() {
@@ -302,7 +298,7 @@ func (this *ClusterServer) WaitSignal() {
 
 func (this *ClusterServer) RpcCallMaster(cmd string) {
 	logger.Info(fmt.Sprintf("RpcCallMaster global_name: %s cmd: %s", utils.GlobalObject.Name, cmd))
-	err := this.MasterRpc.CallChildNotForResult(cmd, utils.GlobalObject.Name)
+	err := this.MasterRpc.CallChildNotForResult(cmd, utils.GlobalObject.Name, uint32(0), uint32(0), nil)
 	if err != nil {
 		logger.Info(fmt.Sprintf("RpcCallMaster cmd: %s error: %s", cmd, err))
 	}
@@ -315,14 +311,15 @@ func (this *ClusterServer) ConnectToMaster() {
 	//注册到master
 	this.MasterRpc = cluster.NewChild(utils.GlobalObject.Name, this.MasterObj)
 	logger.Info(fmt.Sprintf("ConnectToMaster takeproxy global_name: %s", utils.GlobalObject.Name))
-	response, err := this.MasterRpc.CallChildForResult("TakeProxy", utils.GlobalObject.Name)
+	response, err := this.MasterRpc.CallChildForResult("TakeProxy", utils.GlobalObject.Name, uint32(0), uint32(0), nil)
 	if err == nil {
-		roots, ok := response.Result["roots"]
-		if ok {
-			for _, root := range roots.([]string) {
-				logger.Info(fmt.Sprintf("ConnectToMaster ConnectToRemote root_name: %s", root))
-				this.ConnectToRemote(root)
+		roots := strings.Split(response.Result, ",")
+		for _, root := range roots {
+			if root == "" {
+				continue
 			}
+			logger.Info(fmt.Sprintf("ConnectToMaster ConnectToRemote root_name: %s", root))
+			this.ConnectToRemote(root)
 		}
 	} else {
 		panic(fmt.Sprintf("connected to master error: %s", err))
@@ -342,7 +339,7 @@ func (this *ClusterServer) ConnectToRemote(rname string) {
 			//takeproxy
 			child, err := this.RemoteNodesMgr.GetChild(rname)
 			if err == nil {
-				child.CallChildNotForResult("TakeProxy", utils.GlobalObject.Name)
+				child.CallChildNotForResult("TakeProxy", utils.GlobalObject.Name, uint32(0), uint32(0), nil)
 			}
 		} else {
 			logger.Info("Remote connection already exist!")

@@ -61,9 +61,11 @@ func (this *Server) initSessIdPool() {
 
 func (this *Server) handleConnection(conn *net.TCPConn) {
 	genNum := <-this.sessIdPool
+	//logger.Prof("handleConnection genNum:", genNum)
 	conn.SetNoDelay(true)
 	conn.SetKeepAlive(true)
-	// conn.SetDeadline(time.Now().Add(time.Minute * 2))
+	conn.SetWriteBuffer(1024 * 1024)
+	conn.SetReadBuffer(1024 * 1024)
 	fconn := fnet.NewConnection(conn, genNum, utils.GlobalObject.Protoc)
 	fconn.Start()
 }

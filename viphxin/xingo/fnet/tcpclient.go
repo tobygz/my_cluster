@@ -26,6 +26,8 @@ type TcpClient struct {
 	retryInterval int
 	sendtagGuard  sync.RWMutex
 	propertyLock  sync.RWMutex
+	sendCh        chan []byte
+	QpsObj        *utils.QpsMgr
 }
 
 func NewReConnTcpClient(ip string, port int, protoc iface.IClientProtocol, maxRetry int,
@@ -50,6 +52,8 @@ func NewTcpClient(ip string, port int, protoc iface.IClientProtocol) *TcpClient 
 			addr:        addr,
 			protoc:      protoc,
 			PropertyBag: make(map[string]interface{}, 0),
+			QpsObj:      utils.NewQps(time.Second),
+			sendCh:      make(chan []byte, 1),
 		}
 		go client.protoc.OnConnectionMade(client)
 		return client
@@ -61,6 +65,7 @@ func NewTcpClient(ip string, port int, protoc iface.IClientProtocol) *TcpClient 
 
 func (this *TcpClient) Start() {
 	go this.protoc.StartReadThread(this)
+	go this.SendThread()
 }
 
 func (this *TcpClient) Stop(isforce bool) {
@@ -104,14 +109,24 @@ func (this *TcpClient) ReConnection() bool {
 }
 
 func (this *TcpClient) Send(data []byte) error {
-	this.sendtagGuard.Lock()
-	defer this.sendtagGuard.Unlock()
-
-	if _, err := this.conn.Write(data); err != nil {
-		logger.Error(fmt.Sprintf("rpc client send data error.reason: %s", err))
-		return err
-	}
+	this.sendCh <- data
 	return nil
+}
+
+func (this *TcpClient) SendThread() {
+	for {
+		data := <-this.sendCh
+		n, err := this.conn.Write(data)
+		if err != nil {
+			logger.Error(fmt.Sprintf("rpc client send data error.reason: %s", err))
+			return
+		}
+		this.QpsObj.Add(1, n)
+		flag, info, _ := this.QpsObj.Dump()
+		if flag {
+			logger.Prof(info)
+		}
+	}
 }
 
 func (this *TcpClient) GetConnection() *net.TCPConn {

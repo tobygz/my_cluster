@@ -84,9 +84,9 @@ func (this *Dbop) DoDbTask(opCmd string, args ...interface{}) (interface{}, erro
 	//	return this.client.Do(opCmd, args...)
 	ret, ok := this.client.Do(opCmd, args...)
 	if ok != nil {
-		log.Println("dodbtask :", ok, ",", ok.Error())
-		log.Println("DoDbTask reconn, redo ", opCmd)
-		log.Println(args)
+		//log.Println("dodbtask :", ok, ",", ok.Error())
+		//log.Println("DoDbTask reconn, redo ", opCmd)
+		//log.Println(args)
 		this.Start(g_dbid, g_addr, g_pwd)
 		ret, ok = this.client.Do(opCmd, args...)
 		if ok != nil {

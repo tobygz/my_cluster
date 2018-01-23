@@ -36,7 +36,7 @@ func NewProtocol() *Protocol {
 	}
 }
 
-func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint32) {
+func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint32, fconn iface.Iconnection) {
 	pData := &PkgData{
 		Len:   uint32(len(data)),
 		MsgId: msgId,
@@ -45,6 +45,7 @@ func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint32) {
 	pkgAll := &PkgAll{
 		Pdata: pData,
 		Pid:   pid,
+		Fconn: fconn,
 	}
 	this.msghandle.DeliverToMsgQueue(pkgAll)
 }

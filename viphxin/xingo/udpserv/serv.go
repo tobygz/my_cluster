@@ -33,6 +33,9 @@ type UdpServ struct {
 var GlobalUdpServ *UdpServ = nil
 
 func NewUdpServ(port int) {
+	if GlobalUdpServ != nil {
+		return
+	}
 	GlobalUdpServ = &UdpServ{
 		dataChan:     make(chan *DataReq, 32),
 		sendChan:     make(chan *DataReq, 1024),
@@ -40,7 +43,7 @@ func NewUdpServ(port int) {
 		exitSendChan: make(chan int),
 		Running:      true,
 	}
-	GlobalUdpServ.Start(port)
+	GlobalUdpServ.StartServ(port)
 }
 
 func (this *UdpServ) Close() {
@@ -61,7 +64,7 @@ func (this *UdpServ) Send(addr *net.UDPAddr, dataBt []byte) {
 	this.sendChan <- st
 }
 
-func (this *UdpServ) Start(port int) {
+func (this *UdpServ) StartServ(port int) {
 	go func() {
 		for {
 			bOver := false

@@ -1,8 +1,6 @@
 package cluster
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
@@ -30,7 +28,7 @@ func (this *RpcServerProtocol) GetDataPack() iface.Idatapack {
 	return this.rpcDatapack
 }
 
-func (this *RpcServerProtocol) ManualMsgPush(msgId uint32, data []byte, pid uint32) {
+func (this *RpcServerProtocol) ManualMsgPush(msgId uint32, data []byte, pid uint32, fconn iface.Iconnection) {
 	logger.Info("invalid ManualMsgPush rpcprotocol, fatal error !")
 }
 
@@ -81,18 +79,9 @@ func (this *RpcServerProtocol) StartReadThread(fconn iface.Iconnection) {
 					Rpcdata: &RpcData{},
 				}
 
-				//err = json.Unmarshal(pkg.Data, rpcRequest.Rpcdata)
-				//replace json to gob
-				dec := gob.NewDecoder(bytes.NewReader(pkg.Data))
-				err = dec.Decode(rpcRequest.Rpcdata)
+				rpcRequest.Rpcdata.Decode(pkg.Data)
 
-				if err != nil {
-					logger.Error(err)
-					fconn.Stop()
-					return
-				}
-
-				logger.Trace(fmt.Sprintf("rpc call. data len: %d. MsgType: %d", pkg.Len, int(rpcRequest.Rpcdata.MsgType)))
+				//logger.Trace(fmt.Sprintf("rpc call server. data len: %d. MsgType: %d", pkg.Len, int(rpcRequest.Rpcdata.MsgType)))
 				if utils.GlobalObject.PoolSize > 0 && rpcRequest.Rpcdata.MsgType != RESPONSE {
 					this.rpcMsgHandle.DeliverToMsgQueue(rpcRequest)
 				} else {
@@ -166,17 +155,10 @@ func (this *RpcClientProtocol) StartReadThread(fconn iface.Iclient) {
 					Fconn:   fconn,
 					Rpcdata: &RpcData{},
 				}
-				//err = json.Unmarshal(pkg.Data, rpcRequest.Rpcdata)
-				//replace json to gob
-				dec := gob.NewDecoder(bytes.NewReader(pkg.Data))
-				err = dec.Decode(rpcRequest.Rpcdata)
-				if err != nil {
-					logger.Error("json.Unmarshal error!!!")
-					fconn.Stop(false)
-					return
-				}
 
-				logger.Debug(fmt.Sprintf("rpc call. data len: %d. MsgType: %d", pkg.Len, rpcRequest.Rpcdata.MsgType))
+				rpcRequest.Rpcdata.Decode(pkg.Data)
+
+				//logger.Trace(fmt.Sprintf("rpc call client. data len: %d. MsgType: %d", pkg.Len, rpcRequest.Rpcdata.MsgType))
 				if utils.GlobalObject.PoolSize > 0 && rpcRequest.Rpcdata.MsgType != RESPONSE {
 					this.rpcMsgHandle.DeliverToMsgQueue(rpcRequest)
 				} else {

@@ -31,7 +31,7 @@ func NewRpcMsgHandle() *RpcMsgHandle {
 */
 func (this *RpcMsgHandle) DoMsg(request *RpcRequest) {
 
-	//logger.Debug(fmt.Sprintf("+++++++++ rpc %s now_name: %s ", request.Rpcdata.Target, utils.GlobalObject.Name))
+	//logger.Debug(fmt.Sprintf("+++++++++ rpc: %s now_name: %s ", request.Rpcdata.Target, utils.GlobalObject.Name))
 	if request.Rpcdata.MsgType == RESPONSE && request.Rpcdata.Key != "" {
 		//放回异步结果
 		AResultGlobalObj.FillAsyncResult(request.Rpcdata.Key, request.Rpcdata)
@@ -43,16 +43,12 @@ func (this *RpcMsgHandle) DoMsg(request *RpcRequest) {
 			st := time.Now()
 			if request.Rpcdata.MsgType == REQUEST_FORRESULT {
 				ret := f.Call([]reflect.Value{reflect.ValueOf(request)})
-				packdata, err := utils.GlobalObject.RpcCProtoc.GetDataPack().Pack(0, &RpcData{
+				rpcdata := &RpcData{
 					MsgType: RESPONSE,
-					Result:  ret[0].Interface().(map[string]interface{}),
+					Result:  ret[0].Interface().(string),
 					Key:     request.Rpcdata.Key,
-				})
-				if err == nil {
-					request.Fconn.Send(packdata)
-				} else {
-					logger.Error(err)
 				}
+				request.Fconn.Send(rpcdata.Encode())
 			} else if request.Rpcdata.MsgType == REQUEST_NORESULT {
 				f.Call([]reflect.Value{reflect.ValueOf(request)})
 			}
