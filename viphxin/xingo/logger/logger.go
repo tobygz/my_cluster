@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"fmt"
 	log "github.com/golang/glog"
 )
 
