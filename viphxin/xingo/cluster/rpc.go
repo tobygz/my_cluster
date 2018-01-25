@@ -24,11 +24,11 @@ func NewXingoRpc(conn iface.IWriter) *XingoRpc {
 	}
 }
 
-func (this *XingoRpc) CallRpcNotForResult(target string, key string, pid uint32, msgid uint32, binData []byte) error {
+func (this *XingoRpc) CallRpcNotForResult(target string, param string, pid uint32, msgid uint32, binData []byte) error {
 	rpcdata := &RpcData{
 		MsgType: REQUEST_NORESULT,
 		Target:  target,
-		Key:     key,
+		Param:   param,
 	}
 	rpcdata.Bin = &RpcDataBin{
 		Pid:     pid,

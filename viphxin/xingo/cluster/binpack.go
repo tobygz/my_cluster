@@ -29,8 +29,8 @@ type RpcDataBin struct {
 }
 
 func (this *RpcData) String() string {
-	return fmt.Sprintf("msgtype: %d key: %s target: %s bin.pid: %d msgid: %d bindata: %s", this.MsgType,
-		this.Key, this.Target, this.Bin.Pid, this.Bin.Msgid, string(this.Bin.BinData))
+	return fmt.Sprintf("msgtype: %d key: %s param: %s target: %s bin.pid: %d msgid: %d bindata: %s", this.MsgType,
+		this.Key, this.Param, this.Target, this.Bin.Pid, this.Bin.Msgid, string(this.Bin.BinData))
 }
 
 func (this *RpcData) Size() uint32 {
