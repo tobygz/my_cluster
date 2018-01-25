@@ -124,7 +124,6 @@ func (this *Connection) SendThread() {
 			return
 		case data := <-this.SendBuffChan:
 			this.bufobj.Write(data)
-			//logger.Info("sendThread writedata()")
 			bflush = true
 		default:
 			if bflush == false {
@@ -133,7 +132,6 @@ func (this *Connection) SendThread() {
 				bflush = true
 			} else {
 				this.bufobj.Flush()
-				//logger.Info("sendThread flush()")
 				bflush = false
 			}
 		}
@@ -161,45 +159,6 @@ func (this *Connection) Send(data []byte) error {
 		return errors.New("connection closed")
 	}
 }
-
-/*
-func (this *Connection) Send(data []byte) error {
-	// 防止将Send放在go内造成的多线程冲突问题
-	this.sendtagGuard.Lock()
-	defer this.sendtagGuard.Unlock()
-
-	if !this.isClosed {
-		if _, err := this.Conn.Write(data); err != nil {
-			logger.Error(fmt.Sprintf("send data error.reason: %s", err))
-			return err
-		}
-		return nil
-	} else {
-		return errors.New("connection closed")
-	}
-}
-
-func (this *Connection) SendBuff(data []byte) error {
-	// 防止将Send放在go内造成的多线程冲突问题
-	this.sendtagGuard.Lock()
-	defer this.sendtagGuard.Unlock()
-
-	if !this.isClosed {
-
-		// 发送超时
-		select {
-		case <-time.After(time.Second * 2):
-			logger.Error("send error: timeout.")
-			return errors.New("send error: timeout.")
-		case this.SendBuffChan <- data:
-			return nil
-		}
-	} else {
-		return errors.New("connection closed")
-	}
-
-}
-*/
 
 func (this *Connection) RemoteAddr() net.Addr {
 	return (*this.Conn).RemoteAddr()

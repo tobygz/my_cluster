@@ -16,7 +16,6 @@ type RootRpc struct {
 */
 func (this *RootRpc) TakeProxy(request *cluster.RpcRequest) {
 	name := request.Rpcdata.Param
-	logger.Info("child node " + name + " connected to " + utils.GlobalObject.Name)
 	//加到childs并且绑定链接connetion对象
 	clusterserver.GlobalClusterServer.AddChild(name, request.Fconn)
 }
