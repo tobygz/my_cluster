@@ -1,6 +1,7 @@
 package fnet
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"github.com/viphxin/xingo/iface"
@@ -22,6 +23,7 @@ type Connection struct {
 
 	SendBuffChan chan []byte
 	ExtSendChan  chan bool
+	bufobj       *bufio.Writer
 }
 
 func NewConnection(conn *net.TCPConn, sessionId uint32, protoc iface.IServerProtocol) *Connection {
@@ -30,9 +32,10 @@ func NewConnection(conn *net.TCPConn, sessionId uint32, protoc iface.IServerProt
 		isClosed:     false,
 		SessionId:    sessionId,
 		Protoc:       protoc,
+		bufobj:       bufio.NewWriterSize(conn, 1024*1024*10),
 		PropertyBag:  make(map[string]interface{}),
-		SendBuffChan: make(chan []byte, utils.GlobalObject.MaxSendChanLen),
-		ExtSendChan:  make(chan bool, 1),
+		SendBuffChan: make(chan []byte, 1), //utils.GlobalObject.MaxSendChanLen),
+		ExtSendChan:  make(chan bool, 10),
 	}
 	//set  connection time
 	fconn.SetProperty("xingo_ctime", time.Since(time.Now()))
@@ -43,23 +46,26 @@ func (this *Connection) Start() {
 	//add to connectionmsg
 	utils.GlobalObject.TcpServer.GetConnectionMgr().Add(this)
 	this.Protoc.OnConnectionMade(this)
-	this.StartWriteThread()
+	//this.StartWriteThread()
+	go this.SendThread()
 	this.Protoc.StartReadThread(this)
+}
+
+func (this *Connection) SendBuff([]byte) error {
+	return nil
 }
 
 func (this *Connection) Stop() {
 	// 防止将Send放在go内造成的多线程冲突问题
-	this.sendtagGuard.Lock()
-	defer this.sendtagGuard.Unlock()
-
-	logger.Error(fmt.Sprintf("raw fnet connection stop sessid: %d", this.SessionId))
-	if this.isClosed {
+	if this.IsClosed() {
 		return
 	}
-	this.isClosed = true
+
+	logger.Error(fmt.Sprintf("raw fnet connection stop sessid: %d", this.SessionId))
+	this.SetClosed()
 
 	this.ExtSendChan <- true
-	this.isClosed = true
+	this.ExtSendChan <- true
 	//掉线回调放到go内防止，掉线回调处理出线死锁
 	go this.Protoc.OnConnectionLost(this)
 	//remove to connectionmsg
@@ -68,6 +74,7 @@ func (this *Connection) Stop() {
 	close(this.SendBuffChan)
 
 	this.Conn.Close()
+	this.bufobj.Flush()
 }
 
 func (this *Connection) GetConnection() *net.TCPConn {
@@ -108,6 +115,54 @@ func (this *Connection) RemoveProperty(key string) {
 	delete(this.PropertyBag, key)
 }
 
+func (this *Connection) SendThread() {
+	bflush := false
+	for {
+		select {
+		case <-this.ExtSendChan:
+			logger.Info("sendThread exit successful!!!!")
+			return
+		case data := <-this.SendBuffChan:
+			this.bufobj.Write(data)
+			//logger.Info("sendThread writedata()")
+			bflush = true
+		default:
+			if bflush == false {
+				data := <-this.SendBuffChan
+				this.bufobj.Write(data)
+				bflush = true
+			} else {
+				this.bufobj.Flush()
+				//logger.Info("sendThread flush()")
+				bflush = false
+			}
+		}
+
+	}
+}
+
+func (this *Connection) IsClosed() bool {
+	this.sendtagGuard.Lock()
+	defer this.sendtagGuard.Unlock()
+	return this.isClosed
+}
+
+func (this *Connection) SetClosed() {
+	this.sendtagGuard.Lock()
+	defer this.sendtagGuard.Unlock()
+	this.isClosed = true
+}
+
+func (this *Connection) Send(data []byte) error {
+	if !this.IsClosed() {
+		this.SendBuffChan <- data
+		return nil
+	} else {
+		return errors.New("connection closed")
+	}
+}
+
+/*
 func (this *Connection) Send(data []byte) error {
 	// 防止将Send放在go内造成的多线程冲突问题
 	this.sendtagGuard.Lock()
@@ -144,6 +199,7 @@ func (this *Connection) SendBuff(data []byte) error {
 	}
 
 }
+*/
 
 func (this *Connection) RemoteAddr() net.Addr {
 	return (*this.Conn).RemoteAddr()
@@ -153,23 +209,4 @@ func (this *Connection) LostConnection() {
 	(*this.Conn).Close()
 	this.isClosed = true
 	logger.Info("LostConnection==============!!!!!!!!!!!!!!!!!!!!!!!!!")
-}
-
-func (this *Connection) StartWriteThread() {
-	go func() {
-		logger.Debug("start send data from channel...")
-		for {
-			select {
-			case <-this.ExtSendChan:
-				logger.Info("send thread exit successful!!!!")
-				return
-			case data := <-this.SendBuffChan:
-				//send
-				if _, err := this.Conn.Write(data); err != nil {
-					logger.Info("send data error exit...")
-					return
-				}
-			}
-		}
-	}()
 }

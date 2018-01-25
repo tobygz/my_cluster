@@ -1,6 +1,7 @@
 package fnet
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"github.com/viphxin/xingo/iface"
@@ -28,6 +29,7 @@ type TcpClient struct {
 	propertyLock  sync.RWMutex
 	sendCh        chan []byte
 	QpsObj        *utils.QpsMgr
+	bufobj        *bufio.Writer
 }
 
 func NewReConnTcpClient(ip string, port int, protoc iface.IClientProtocol, maxRetry int,
@@ -54,6 +56,7 @@ func NewTcpClient(ip string, port int, protoc iface.IClientProtocol) *TcpClient 
 			PropertyBag: make(map[string]interface{}, 0),
 			QpsObj:      utils.NewQps(time.Second),
 			sendCh:      make(chan []byte, 1),
+			bufobj:      bufio.NewWriterSize(conn, 1024*1024*10),
 		}
 		go client.protoc.OnConnectionMade(client)
 		return client
@@ -64,8 +67,8 @@ func NewTcpClient(ip string, port int, protoc iface.IClientProtocol) *TcpClient 
 }
 
 func (this *TcpClient) Start() {
-	go this.protoc.StartReadThread(this)
 	go this.SendThread()
+	go this.protoc.StartReadThread(this)
 }
 
 func (this *TcpClient) Stop(isforce bool) {
@@ -110,9 +113,15 @@ func (this *TcpClient) ReConnection() bool {
 
 func (this *TcpClient) Send(data []byte) error {
 	this.sendCh <- data
+	this.QpsObj.Add(1, len(data))
+	flag, info, _ := this.QpsObj.Dump()
+	if flag {
+		logger.Prof(info)
+	}
 	return nil
 }
 
+/*
 func (this *TcpClient) SendThread() {
 	for {
 		data := <-this.sendCh
@@ -125,6 +134,29 @@ func (this *TcpClient) SendThread() {
 		flag, info, _ := this.QpsObj.Dump()
 		if flag {
 			logger.Prof(info)
+		}
+	}
+}
+*/
+
+func (this *TcpClient) SendThread() {
+	logger.Info("TcpClient SendThread started")
+	bflush := false
+	for {
+		select {
+		case data := <-this.sendCh:
+			this.bufobj.Write(data)
+			bflush = true
+		default:
+			if bflush == false {
+				data := <-this.sendCh
+				this.bufobj.Write(data)
+				bflush = true
+			} else {
+				this.bufobj.Flush()
+				bflush = false
+			}
+
 		}
 	}
 }
