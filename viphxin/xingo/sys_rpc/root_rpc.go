@@ -4,8 +4,8 @@ import (
 	"github.com/viphxin/xingo/cluster"
 
 	"github.com/viphxin/xingo/clusterserver"
-	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/utils"
+	//	"github.com/viphxin/xingo/logger"
+	//	"github.com/viphxin/xingo/utils"
 )
 
 type RootRpc struct {
