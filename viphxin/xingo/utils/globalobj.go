@@ -37,6 +37,9 @@ type GlobalObj struct {
 	LogLevel         logger.LEVEL
 	SetToConsole     bool
 	LogFileType      int32
+	ToSyslog         bool
+	SyslogAddr       string
+	SyslogPort       int
 	PoolSize         int32
 	IsUsePool        bool
 	MaxWorkerLen     int32
@@ -102,6 +105,7 @@ func init() {
 		LogLevel:               logger.ERROR,
 		SetToConsole:           true,
 		LogFileType:            2,
+		ToSyslog:               false,
 		PoolSize:               1,
 		IsUsePool:              true,
 		MaxWorkerLen:           1024 * 2,

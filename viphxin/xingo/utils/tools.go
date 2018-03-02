@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"compress/zlib"
 	"fmt"
+	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"io"
 	"math/rand"
 	"net/http"
-	"reflect"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -35,16 +35,16 @@ func ReSettingLog() {
 	// --------------------------------------------init log start
 	logger.SetConsole(GlobalObject.SetToConsole)
 	if GlobalObject.LogFileType == logger.ROLLINGFILE {
-		logger.SetRollingFile(GlobalObject.LogPath, GlobalObject.LogName,
-			GlobalObject.MaxLogNum, GlobalObject.MaxFileSize, GlobalObject.LogFileUnit)
+		logger.SetRollingFile(GlobalObject.LogPath, GlobalObject.LogName, GlobalObject.MaxLogNum,
+			GlobalObject.MaxFileSize, GlobalObject.LogFileUnit, GlobalObject.ToSyslog, GlobalObject.SyslogAddr, GlobalObject.SyslogPort)
 	} else {
-		logger.SetRollingDaily(GlobalObject.LogPath, GlobalObject.LogName)
+		logger.SetRollingDaily(GlobalObject.LogPath, GlobalObject.LogName, GlobalObject.ToSyslog, GlobalObject.SyslogAddr, GlobalObject.SyslogPort)
 		logger.SetLevel(GlobalObject.LogLevel)
 	}
 	// --------------------------------------------init log end
 }
 
-func XingoTry(f reflect.Value, args []reflect.Value, handler func(interface{})) {
+func XingoTry(f func(iface.IRequest, uint32, uint32), handler func(interface{}), data iface.IRequest, msgId, pid uint32) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Info("-------------panic recover---------------")
@@ -58,7 +58,7 @@ func XingoTry(f reflect.Value, args []reflect.Value, handler func(interface{})) 
 			logger.Error(fmt.Sprintf("%s\n", string(buf[0:stackSize])))
 		}
 	}()
-	f.Call(args)
+	f(data, msgId, pid)
 }
 
 func ZlibCompress(src []byte) []byte {

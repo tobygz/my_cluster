@@ -161,6 +161,7 @@ func (this *Connection) Send(data []byte) error {
 }
 
 func (this *Connection) RemoteAddr() net.Addr {
+	//func (this *Connection) RemoteAddr() string {
 	return (*this.Conn).RemoteAddr()
 }
 

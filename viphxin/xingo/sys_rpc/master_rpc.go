@@ -2,8 +2,8 @@ package sys_rpc
 
 import (
 	"fmt"
-	"github.com/viphxin/xingo/cluster"
 	"github.com/viphxin/xingo/clusterserver"
+	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
 	"os"
@@ -13,21 +13,30 @@ import (
 type MasterRpc struct {
 }
 
-func (this *MasterRpc) TakeProxy(request *cluster.RpcRequest) (response string) {
-	name := request.Rpcdata.Param
+func (this *MasterRpc) GetRpcMap() map[string]func(iface.IRpcRequest) {
+	return map[string]func(iface.IRpcRequest){
+		"TakeProxy": this.TakeProxy,
+		"Shutdown":  this.Shutdown,
+	}
+}
+
+func (this *MasterRpc) TakeProxy(request iface.IRpcRequest) {
+	name := request.GetParam()
 	logger.Info("node " + name + " connected to master.")
 	//加到childs并且绑定链接connetion对象
-	clusterserver.GlobalMaster.AddNode(name, request.Fconn)
+	clusterserver.GlobalMaster.AddNode(name, request.GetWriter())
 
 	//返回需要链接的父节点
 	remotes, err := clusterserver.GlobalMaster.Cconf.GetRemotesByName(name)
 	if err == nil {
+		var response string
 		for _, r := range remotes {
 			if _, ok := clusterserver.GlobalMaster.OnlineNodes[r]; ok {
 				//父节点在线
 				response = fmt.Sprintf("%s,%s", response, r)
 			}
 		}
+		request.SetResult(response)
 	}
 	//通知当前节点的子节点链接当前节点
 	for _, child := range clusterserver.GlobalMaster.Childs.GetChilds() {
@@ -47,8 +56,8 @@ func (this *MasterRpc) TakeProxy(request *cluster.RpcRequest) (response string) 
 	return
 }
 
-func (this *MasterRpc) Shutdown(request *cluster.RpcRequest) {
-	name := request.Rpcdata.Param
+func (this *MasterRpc) Shutdown(request iface.IRpcRequest) {
+	name := request.GetParam()
 	logger.Info("node " + name + " says shutdown.")
 
 	utils.GlobalObject.IsClose = true

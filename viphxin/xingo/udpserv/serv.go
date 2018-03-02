@@ -2,6 +2,7 @@ package udpserv
 
 import (
 	//"fmt"
+	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"net"
 	"strings"
@@ -17,8 +18,16 @@ func (this *DataReq) GetAddr() *net.UDPAddr {
 	return this.addr
 }
 
+func (this *DataReq) GetConnection() iface.Iconnection {
+	return nil
+}
+
 func (this *DataReq) GetData() []byte {
 	return this.data
+}
+
+func (this *DataReq) GetMsgId() uint32 {
+	return 0
 }
 
 type UdpServ struct {

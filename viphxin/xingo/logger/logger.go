@@ -39,11 +39,20 @@ const (
 )
 
 func SetPrefix(title string) {
-	return
 }
 
 func SetConsole(isConsole bool) {
 	log.SetAlsoToStderr(isConsole)
+}
+
+func SetToSyslog(toSyslog bool) {
+	log.SetToSyslog(toSyslog)
+}
+
+func SetSyslogAddr(addr string, port int) {
+	if addr != "" && port > 0 {
+		log.SetSyslogAddr(addr, port)
+	}
 }
 
 func SetLevel(_level LEVEL) {
@@ -58,15 +67,23 @@ func SetLevel(_level LEVEL) {
 	}
 }
 
-func SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT) {
+func SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT, toSyslog bool, syslogAddr string, syslogPort int) {
 	log.SetLogPath(fileDir, fileName)
 	log.MaxSize = uint64(maxSize) * uint64(_unit)
+	log.SetToSyslog(toSyslog)
+	log.SetSyslogAddr(syslogAddr, syslogPort)
 	log.ResetOutput()
 }
 
-func SetRollingDaily(fileDir, fileName string) {
+func SetRollingDaily(fileDir, fileName string, toSyslog bool, syslogAddr string, syslogPort int) {
 	log.SetLogPath(fileDir, fileName)
+	log.SetToSyslog(toSyslog)
+	log.SetSyslogAddr(syslogAddr, syslogPort)
 	log.ResetOutput()
+}
+
+func Flush() {
+	log.Flush()
 }
 
 var (
@@ -77,17 +94,12 @@ var (
 	Warn  logLnFunc = log.Warningln
 	Error logLnFunc = log.Errorln
 	Fatal logLnFunc = log.Fatalln
+
+	Infof  logfFunc = log.Infof
+	Warnf  logfFunc = log.Warningf
+	Errorf logfFunc = log.Errorf
+	Fatalf logfFunc = log.Fatalf
 )
 
 type logLnFunc func(v ...interface{})
-
-/*
-func init() {
-	Trace = log.Infoln
-	Debug = log.Infoln
-	Info = log.Infoln
-	Warn = log.Warningln
-	Error = log.Errorln
-	Fatal = log.Fatalln
-}
-*/
+type logfFunc func(format string, v ...interface{})

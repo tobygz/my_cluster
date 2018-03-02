@@ -33,7 +33,7 @@ func (this *RpcServerProtocol) ManualMsgPush(msgId uint32, data []byte, pid uint
 }
 
 func (this *RpcServerProtocol) AddRpcRouter(router interface{}) {
-	this.rpcMsgHandle.AddRouter(router)
+	this.rpcMsgHandle.AddRpcRouter(router.(iface.IRpcRouter))
 }
 
 func (this *RpcServerProtocol) InitWorker(poolsize int32) {
@@ -111,8 +111,9 @@ func (this *RpcClientProtocol) GetMsgHandle() iface.Imsghandle {
 func (this *RpcClientProtocol) GetDataPack() iface.Idatapack {
 	return this.rpcDatapack
 }
+
 func (this *RpcClientProtocol) AddRpcRouter(router interface{}) {
-	this.rpcMsgHandle.AddRouter(router)
+	this.rpcMsgHandle.AddRpcRouter(router.(iface.IRpcRouter))
 }
 
 func (this *RpcClientProtocol) InitWorker(poolsize int32) {

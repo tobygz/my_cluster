@@ -21,7 +21,7 @@ var PER_CNT uint32 = 5
 func init() {
 	utils.GlobalObject.Protoc = fnet.NewProtocol()
 	// --------------------------------------------init log start
-	utils.ReSettingLog()
+	//utils.ReSettingLog()
 	// --------------------------------------------init log end
 }
 
@@ -120,7 +120,7 @@ func (this *Server) Stop() {
 	}
 }
 
-func (this *Server) AddRouter(router interface{}) {
+func (this *Server) AddRouter(router iface.IRouter) {
 	logger.Info("AddRouter")
 	utils.GlobalObject.Protoc.GetMsgHandle().AddRouter(router)
 }

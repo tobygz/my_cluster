@@ -20,6 +20,46 @@ type RpcRequest struct {
 	Rpcdata *RpcData
 }
 
+func (this *RpcRequest) GetWriter() iface.IWriter {
+	return this.Fconn
+}
+
+func (this *RpcRequest) GetMsgType() uint8 {
+	return this.Rpcdata.MsgType
+}
+
+func (this *RpcRequest) GetKey() string {
+	return this.Rpcdata.Key
+}
+
+func (this *RpcRequest) GetTarget() string {
+	return this.Rpcdata.Target
+}
+
+func (this *RpcRequest) GetParam() string {
+	return this.Rpcdata.Param
+}
+
+func (this *RpcRequest) GetResult() string {
+	return this.Rpcdata.Result
+}
+
+func (this *RpcRequest) SetResult(result string) {
+	this.Rpcdata.Result = result
+}
+
+func (this *RpcRequest) GetData() []byte {
+	return this.Rpcdata.Bin.BinData
+}
+
+func (this *RpcRequest) GetPid() uint32 {
+	return this.Rpcdata.Bin.Pid
+}
+
+func (this *RpcRequest) GetMsgid() uint32 {
+	return this.Rpcdata.Bin.Msgid
+}
+
 type RpcDataPack struct{}
 
 func NewRpcDataPack() *RpcDataPack {

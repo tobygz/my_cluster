@@ -5,10 +5,10 @@ package fnet
 */
 import (
 	"fmt"
+	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/udpserv"
 	"github.com/viphxin/xingo/utils"
-	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -19,7 +19,7 @@ import (
 type MsgHandle struct {
 	PoolSize  int32
 	TaskQueue []chan *PkgAll
-	Apis      map[uint32]reflect.Value
+	Apis      map[uint32]func(iface.IRequest, uint32, uint32)
 	QpsObj    *utils.QpsMgr
 	sync.RWMutex
 }
@@ -28,7 +28,7 @@ func NewMsgHandle() *MsgHandle {
 	return &MsgHandle{
 		PoolSize:  utils.GlobalObject.PoolSize,
 		TaskQueue: make([]chan *PkgAll, utils.GlobalObject.PoolSize),
-		Apis:      make(map[uint32]reflect.Value),
+		Apis:      make(map[uint32]func(iface.IRequest, uint32, uint32)),
 		QpsObj:    utils.NewQps(time.Second),
 	}
 }
@@ -60,7 +60,7 @@ func (this *MsgHandle) DoMsgFromGoRoutine(pkg interface{}) {
 	go func() {
 		if f, ok := this.Apis[data.Pdata.MsgId]; ok {
 			//存在
-			f.Call([]reflect.Value{reflect.ValueOf(data)})
+			f(data, data.Pdata.MsgId, data.Pid)
 
 		} else {
 			logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
@@ -68,20 +68,18 @@ func (this *MsgHandle) DoMsgFromGoRoutine(pkg interface{}) {
 	}()
 }
 
-func (this *MsgHandle) AddRouter(router interface{}) {
+func (this *MsgHandle) AddRouter(router iface.IRouter) {
 	/*
 		for i := 0; i < 1000; i++ {
 			//to net
 		}
 	*/
+	apiMap := router.GetApiMap()
 	if strings.Contains(utils.GlobalObject.Name, "net") {
-		value := reflect.ValueOf(router)
-		tp := value.Type()
-		var func_msg2gate reflect.Value
-		for i := 0; i < value.NumMethod(); i += 1 {
-			name := tp.Method(i).Name
+		var func_msg2gate func(iface.IRequest, uint32, uint32)
+		for name, method := range apiMap {
 			if strings.Contains(name, "Api_msg2gate") == true {
-				func_msg2gate = value.Method(i)
+				func_msg2gate = method
 			}
 		}
 
@@ -101,11 +99,12 @@ func (this *MsgHandle) AddRouter(router interface{}) {
 	this.AddRouter_raw(router)
 }
 
-func (this *MsgHandle) AddRouter_raw(router interface{}) {
-	value := reflect.ValueOf(router)
-	tp := value.Type()
-	for i := 0; i < value.NumMethod(); i += 1 {
-		name := tp.Method(i).Name
+func (this *MsgHandle) AddRpcRouter(router iface.IRpcRouter) {
+}
+
+func (this *MsgHandle) AddRouter_raw(router iface.IRouter) {
+	apiMap := router.GetApiMap()
+	for name, method := range apiMap {
 		if strings.Contains(name, "Api") != true {
 			logger.Info(fmt.Sprintf("router ignore contain func: %s", name))
 			continue
@@ -121,7 +120,7 @@ func (this *MsgHandle) AddRouter_raw(router interface{}) {
 			//存在
 			panic("repeated api " + string(index))
 		}
-		this.Apis[uint32(index)] = value.Method(i)
+		this.Apis[uint32(index)] = method
 		logger.Info(fmt.Sprintf("msghandle add api idx: %d name:%s", index, name))
 	}
 
@@ -139,7 +138,7 @@ func (this *MsgHandle) NetWorkerLoop(i int, c chan *PkgAll) {
 					//logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
 					msgId = data.Pdata.MsgId
 					pid = data.Pid
-					utils.XingoTry(f, []reflect.Value{reflect.ValueOf(data), reflect.ValueOf(msgId), reflect.ValueOf(pid)}, this.HandleError)
+					utils.XingoTry(f, this.HandleError, data, msgId, pid)
 					this.QpsObj.Add(1, 1)
 					flag, info, _ := this.QpsObj.Dump()
 					if flag {
@@ -173,7 +172,7 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 					//logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
 					msgId = data.Pdata.MsgId
 					pid = data.Pid
-					utils.XingoTry(f, []reflect.Value{reflect.ValueOf(data), reflect.ValueOf(msgId), reflect.ValueOf(pid)}, this.HandleError)
+					utils.XingoTry(f, this.HandleError, data, msgId, pid)
 					this.QpsObj.Add(1, 1)
 					flag, info, _ := this.QpsObj.Dump()
 					if flag {
@@ -197,7 +196,7 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 				}
 				if udpserv.GlobalUdpServ.Running {
 					pid = 0
-					utils.XingoTry(f, []reflect.Value{reflect.ValueOf(udpreq), reflect.ValueOf(msgId), reflect.ValueOf(pid)}, this.HandleError)
+					utils.XingoTry(f, this.HandleError, udpreq, msgId, pid)
 				}
 
 			}

@@ -5,24 +5,24 @@ package cluster
 */
 import (
 	"fmt"
+	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
 	"math/rand"
-	"reflect"
 	"time"
 )
 
 type RpcMsgHandle struct {
 	PoolSize  int32
 	TaskQueue []chan *RpcRequest
-	Apis      map[string]reflect.Value
+	Apis      map[string]func(iface.IRpcRequest)
 }
 
 func NewRpcMsgHandle() *RpcMsgHandle {
 	return &RpcMsgHandle{
 		PoolSize:  utils.GlobalObject.PoolSize,
 		TaskQueue: make([]chan *RpcRequest, utils.GlobalObject.PoolSize),
-		Apis:      make(map[string]reflect.Value),
+		Apis:      make(map[string]func(iface.IRpcRequest)),
 	}
 }
 
@@ -42,15 +42,15 @@ func (this *RpcMsgHandle) DoMsg(request *RpcRequest) {
 			//存在
 			st := time.Now()
 			if request.Rpcdata.MsgType == REQUEST_FORRESULT {
-				ret := f.Call([]reflect.Value{reflect.ValueOf(request)})
+				f(request)
 				rpcdata := &RpcData{
 					MsgType: RESPONSE,
-					Result:  ret[0].Interface().(string),
+					Result:  request.GetResult(),
 					Key:     request.Rpcdata.Key,
 				}
 				request.Fconn.Send(rpcdata.Encode())
 			} else if request.Rpcdata.MsgType == REQUEST_NORESULT {
-				f.Call([]reflect.Value{reflect.ValueOf(request)})
+				f(request)
 			}
 
 			if utils.GlobalObject.EnableFlowLog {
@@ -79,17 +79,17 @@ func (this *RpcMsgHandle) DoMsgFromGoRoutine(pkg interface{}) {
 	go this.DoMsg(request)
 }
 
-func (this *RpcMsgHandle) AddRouter(router interface{}) {
-	value := reflect.ValueOf(router)
-	tp := value.Type()
-	for i := 0; i < value.NumMethod(); i += 1 {
-		name := tp.Method(i).Name
+func (this *RpcMsgHandle) AddRouter(router iface.IRouter) {
+}
 
+func (this *RpcMsgHandle) AddRpcRouter(router iface.IRpcRouter) {
+	apiMap := router.GetRpcMap()
+	for name, method := range apiMap {
 		if _, ok := this.Apis[name]; ok {
 			//存在
 			panic("repeated rpc " + name)
 		}
-		this.Apis[name] = value.Method(i)
+		this.Apis[name] = method
 		logger.Info(fmt.Sprintf("now_name: %s add RpcMsgHandle: %s ", utils.GlobalObject.Name, name))
 	}
 }

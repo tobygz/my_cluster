@@ -24,6 +24,18 @@ type PkgAll struct {
 	Pid   uint32
 }
 
+func (this *PkgAll) GetConnection() iface.Iconnection {
+	return this.Fconn
+}
+
+func (this *PkgAll) GetData() []byte {
+	return this.Pdata.Data
+}
+
+func (this *PkgAll) GetMsgId() uint32 {
+	return this.Pdata.MsgId
+}
+
 type Protocol struct {
 	msghandle  *MsgHandle
 	pbdatapack *PBDataPack
@@ -58,7 +70,7 @@ func (this *Protocol) GetDataPack() iface.Idatapack {
 }
 
 func (this *Protocol) AddRpcRouter(router interface{}) {
-	this.msghandle.AddRouter(router)
+	this.msghandle.AddRouter(router.(iface.IRouter))
 }
 
 func (this *Protocol) InitWorker(poolsize int32) {

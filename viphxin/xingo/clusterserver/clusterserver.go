@@ -439,6 +439,7 @@ func (this *ClusterServer) AddHttpRouter(router interface{}) {
 }
 
 func (this *ClusterServer) OnClose() {
+	logger.Flush()
 	if utils.GlobalObject.IsWin() == false {
 		p, err := os.FindProcess(syscall.Getpid())
 		if err != nil {

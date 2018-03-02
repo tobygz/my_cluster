@@ -22,6 +22,7 @@ import (
 	"errors"
 	//"flag"
 	"fmt"
+	"log/syslog"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -49,16 +50,25 @@ func createLogDirs() {
 }
 
 var (
-	pid      = os.Getpid()
-	program  = filepath.Base(os.Args[0])
-	host     = "unknownhost"
-	userName = "unknownuser"
-	logDir string
+	pid        = os.Getpid()
+	program    = filepath.Base(os.Args[0])
+	host       = "unknownhost"
+	userName   = "unknownuser"
+	logDir     string
+	syslogAddr = "localhost"
+	syslogPort = 514
 )
+
+const syslogPath = "/data/log/bigworld"
 
 func SetLogPath(dir, name string) {
 	logDir = dir
 	program = name
+}
+
+func SetSyslogAddr(addr string, port int) {
+	syslogAddr = addr
+	syslogPort = port
 }
 
 func init() {
@@ -89,19 +99,19 @@ func shortHostname(hostname string) string {
 // the name for the symlink for tag.
 func logName(tag string, t time.Time) (name, link string) {
 	/*
-	name = fmt.Sprintf("%s.%s.%s.log.%s.%04d%02d%02d-%02d%02d%02d.%d",
-		program,
-		host,
-		userName,
-		tag,
-		t.Year(),
-		t.Month(),
-		t.Day(),
-		t.Hour(),
-		t.Minute(),
-		t.Second(),
-		pid)
-	return name, program + "." + tag
+		name = fmt.Sprintf("%s.%s.%s.log.%s.%04d%02d%02d-%02d%02d%02d.%d",
+			program,
+			host,
+			userName,
+			tag,
+			t.Year(),
+			t.Month(),
+			t.Day(),
+			t.Hour(),
+			t.Minute(),
+			t.Second(),
+			pid)
+		return name, program + "." + tag
 	*/
 	name = fmt.Sprintf("%s.%s.%s.log.%04d%02d%02d-%02d%02d%02d.%d",
 		program,
@@ -142,4 +152,26 @@ func create(tag string, t time.Time) (f *os.File, filename string, err error) {
 		lastErr = err
 	}
 	return nil, "", fmt.Errorf("log: cannot create log: %v", lastErr)
+}
+
+func dial_syslog() (w *syslog.Writer, err error) {
+	onceLogDirs.Do(createLogDirs)
+	if len(logDirs) == 0 {
+		return nil, errors.New("log: no log dirs")
+	}
+	var lastErr error
+	for _, dir := range logDirs {
+		addr := fmt.Sprintf("%s:%d", syslogAddr, syslogPort)
+		tag := fmt.Sprintf("%s-%s.%s", program, host, userName)
+		w, err := syslog.Dial("tcp", addr, syslog.LOG_DEBUG|syslog.LOG_LOCAL2, tag)
+		if err == nil {
+			name := filepath.Join(syslogPath, tag)
+			symlink := filepath.Join(dir, program)
+			os.Remove(symlink)
+			os.Symlink(name, symlink)
+			return w, nil
+		}
+		lastErr = err
+	}
+	return nil, fmt.Errorf("log: cannot dial syslog: %v", lastErr)
 }

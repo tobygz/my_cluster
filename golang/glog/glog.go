@@ -78,6 +78,7 @@ import (
 	"fmt"
 	"io"
 	stdLog "log"
+	"log/syslog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -403,11 +404,16 @@ func SetVerbosity(level string) {
 	logging.verbosity.Set(level)
 }
 
+func SetToSyslog(toSyslog bool) {
+	logging.toSyslog = toSyslog
+}
+
 func init() {
 	//flag.BoolVar(&logging.toStderr, "logtostderr", false, "log to standard error instead of files")
 	logging.toStderr = false
 	//flag.BoolVar(&logging.alsoToStderr, "alsologtostderr", false, "log to standard error as well as files")
 	logging.alsoToStderr = false
+	logging.toSyslog = false
 	//flag.Var(&logging.verbosity, "v", "log level for V logs")
 	//flag.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr")
 	//flag.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
@@ -435,6 +441,9 @@ type loggingT struct {
 
 	// Level flag. Handled atomically.
 	stderrThreshold severity // The -stderrthreshold flag.
+
+	//syslog
+	toSyslog bool
 
 	// freeList is a list of byte buffers, maintained under freeListMu.
 	freeList *buffer
@@ -828,7 +837,10 @@ type syncBuffer struct {
 }
 
 func (sb *syncBuffer) Sync() error {
-	return sb.file.Sync()
+	if sb.file != nil {
+		return sb.file.Sync()
+	}
+	return nil
 }
 
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
@@ -847,11 +859,12 @@ func (sb *syncBuffer) Write(p []byte) (n int, err error) {
 
 // rotateFile closes the syncBuffer's file and starts a new one.
 func (sb *syncBuffer) rotateFile(now time.Time) error {
+	var err error
 	if sb.file != nil {
 		sb.Flush()
 		sb.file.Close()
 	}
-	var err error
+
 	sb.file, _, err = create(severityName[sb.sev], now)
 	sb.nbytes = 0
 	if err != nil {
@@ -874,23 +887,70 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 // bufferSize sizes the buffer associated with each log file. It's large
 // so that log records can accumulate without the logging thread blocking
 // on disk I/O. The flushDaemon will block instead.
-const bufferSize = 1024 * 1024
+const bufferSize = 256 * 1024
+
+type syslogWriter struct {
+	logger *loggingT
+	*syslog.Writer
+}
+
+func (sw *syslogWriter) Sync() error {
+	return nil
+}
+
+func (sw *syslogWriter) Flush() error {
+	return nil
+}
+
+func (sb *syslogWriter) dial(now time.Time) error {
+	var err error
+	if sb.Writer != nil {
+		sb.Writer.Close()
+	}
+	sb.Writer, err = dial_syslog()
+	if err != nil {
+		return err
+	}
+
+	// Write header.
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "Log file created at: %s\n", now.Format("2006/01/02 15:04:05"))
+	fmt.Fprintf(&buf, "Running on machine: %s\n", host)
+	fmt.Fprintf(&buf, "Binary: Built with %s %s for %s/%s\n", runtime.Compiler, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	fmt.Fprintf(&buf, "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg\n")
+	_, err = sb.Writer.Write(buf.Bytes())
+	return err
+}
 
 // createFiles creates all the log files for severity from sev down to infoLog.
 // l.mu is held.
 func (l *loggingT) createFiles(sev severity) error {
+	if l.file != nil {
+		l.file.Flush()
+		l.file.Sync()
+	}
 	now := time.Now()
 	// Files are created in decreasing severity order, so as soon as we find one
 	// has already been created, we can stop.
 	//for s := sev; s >= infoLog && l.file[s] == nil; s-- {
-	sb := &syncBuffer{
-		logger: l,
-		sev:    sev,
+	if !l.toSyslog {
+		sb := &syncBuffer{
+			logger: l,
+			sev:    sev,
+		}
+		if err := sb.rotateFile(now); err != nil {
+			return err
+		}
+		l.file = sb
+	} else {
+		sw := &syslogWriter{
+			logger: l,
+		}
+		if err := sw.dial(now); err != nil {
+			return err
+		}
+		l.file = sw
 	}
-	if err := sb.rotateFile(now); err != nil {
-		return err
-	}
-	l.file = sb
 	//}
 	return nil
 }
@@ -915,13 +975,13 @@ func (l *loggingT) lockAndFlushAll() {
 // l.mu is held.
 func (l *loggingT) flushAll() {
 	// Flush from fatal down, in case there's trouble flushing.
-	for s := fatalLog; s >= infoLog; s-- {
-		//file := l.file[s]
-		if l.file != nil {
-			l.file.Flush() // ignore error
-			l.file.Sync()  // ignore error
-		}
+	//for s := fatalLog; s >= infoLog; s-- {
+	//file := l.file[s]
+	if l.file != nil {
+		l.file.Flush() // ignore error
+		l.file.Sync()  // ignore error
 	}
+	//}
 }
 
 // CopyStandardLogTo arranges for messages written to the Go "log" package's
