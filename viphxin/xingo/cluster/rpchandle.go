@@ -51,6 +51,14 @@ func (this *RpcMsgHandle) DoMsg(request *RpcRequest) {
 				request.Fconn.Send(rpcdata.Encode())
 			} else if request.Rpcdata.MsgType == REQUEST_NORESULT {
 				f(request)
+			} else if request.Rpcdata.MsgType == REQUEST_SUCC {
+				rpcdata := &RpcData{
+					MsgType: RESPONSE,
+					Result:  "succ",
+					Key:     request.Rpcdata.Key,
+				}
+				request.Fconn.Send(rpcdata.Encode())
+				f(request)
 			}
 
 			if utils.GlobalObject.EnableFlowLog {

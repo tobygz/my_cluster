@@ -11,6 +11,7 @@ import (
 var REQUEST_NORESULT uint8 = uint8(0)
 var REQUEST_FORRESULT uint8 = uint8(1)
 var RESPONSE uint8 = uint8(2)
+var REQUEST_SUCC uint8 = uint8(3)
 
 type XingoRpc struct {
 	conn           iface.IWriter
@@ -39,10 +40,10 @@ func (this *XingoRpc) CallRpcNotForResult(target string, param string, pid uint3
 	return nil
 }
 
-func (this *XingoRpc) CallRpcForResult(target string, param string, pid uint32, msgid uint32, binData []byte) (*RpcData, error) {
+func (this *XingoRpc) callRpcHasResp(target string, param string, pid uint32, msgid uint32, binData []byte, msgtype uint8) (*RpcData, error) {
 	asyncR := this.asyncResultMgr.Add()
 	rpcdata := &RpcData{
-		MsgType: REQUEST_FORRESULT,
+		MsgType: msgtype,
 		Target:  target,
 		Param:   param,
 		Key:     asyncR.GetKey(),
@@ -61,4 +62,12 @@ func (this *XingoRpc) CallRpcForResult(target string, param string, pid uint32, 
 		this.asyncResultMgr.Remove(asyncR.GetKey())
 		return nil, err
 	}
+}
+
+func (this *XingoRpc) CallRpcForResult(target string, param string, pid uint32, msgid uint32, binData []byte) (*RpcData, error) {
+	return this.callRpcHasResp(target, param, pid, msgid, binData, REQUEST_FORRESULT)
+}
+
+func (this *XingoRpc) CallRpcSucc(target string, param string, pid uint32, msgid uint32, binData []byte) (*RpcData, error) {
+	return this.callRpcHasResp(target, param, pid, msgid, binData, REQUEST_SUCC)
 }

@@ -101,9 +101,20 @@ func PrintStack() {
 
 var g_rand *rand.Rand
 
+func initRandSource() {
+	g_rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+}
+
 func GetRandVal(limit int) int {
 	if g_rand == nil {
-		g_rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+		initRandSource()
 	}
 	return g_rand.Intn(limit)
+}
+
+func GetRandUVal() uint32 {
+	if g_rand == nil {
+		initRandSource()
+	}
+	return g_rand.Uint32()
 }

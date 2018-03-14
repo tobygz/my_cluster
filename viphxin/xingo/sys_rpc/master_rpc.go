@@ -2,12 +2,14 @@ package sys_rpc
 
 import (
 	"fmt"
+	"github.com/viphxin/xingo/cluster"
 	"github.com/viphxin/xingo/clusterserver"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
 	"os"
 	"strings"
+	"sync"
 )
 
 type MasterRpc struct {
@@ -62,20 +64,32 @@ func (this *MasterRpc) Shutdown(request iface.IRpcRequest) {
 
 	utils.GlobalObject.IsClose = true
 
+	var wait sync.WaitGroup
 	for _, child := range clusterserver.GlobalMaster.Childs.GetChilds() {
 		if strings.Contains(child.GetName(), "gate") {
-			logger.Info("shutdown node :" + child.GetName())
-			child.CallChildNotForResult("Doshutdown", "master", uint32(0), uint32(0), nil)
+			wait.Add(1)
+			go func(child *cluster.Child) {
+				logger.Info("shutdown node :" + child.GetName())
+				child.CallChildSucc("Doshutdown", "master", uint32(0), uint32(0), nil)
+				wait.Done()
+			}(child)
 		}
 	}
 	//time.AfterFunc(time.Second*5, func() {
 	for _, child := range clusterserver.GlobalMaster.Childs.GetChilds() {
 		if strings.Contains(child.GetName(), "gate") == false {
-			logger.Info("shutdown node :" + child.GetName())
-			child.CallChildNotForResult("Doshutdown", "master", uint32(0), uint32(0), nil)
+			wait.Add(1)
+			go func(child *cluster.Child) {
+				logger.Info("shutdown node :" + child.GetName())
+				child.CallChildSucc("Doshutdown", "master", uint32(0), uint32(0), nil)
+				wait.Done()
+			}(child)
 		}
 	}
+
+	wait.Wait()
 	clusterserver.GlobalClusterServer.OnClose()
+	logger.Flush()
 	os.Exit(0)
 	//})
 }

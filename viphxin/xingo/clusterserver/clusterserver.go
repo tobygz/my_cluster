@@ -284,6 +284,7 @@ func (this *ClusterServer) FinnalClose() {
 		utils.GlobalObject.WebObj = nil
 	}
 	logger.Info("xingo cluster stoped.")
+	logger.Flush()
 }
 
 func (this *ClusterServer) WaitSignal() {
@@ -439,7 +440,6 @@ func (this *ClusterServer) AddHttpRouter(router interface{}) {
 }
 
 func (this *ClusterServer) OnClose() {
-	logger.Flush()
 	if utils.GlobalObject.IsWin() == false {
 		p, err := os.FindProcess(syscall.Getpid())
 		if err != nil {

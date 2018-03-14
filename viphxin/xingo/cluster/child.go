@@ -34,6 +34,10 @@ func (this *Child) CallChildForResult(target string, param string, pid uint32, m
 	return this.rpc.CallRpcForResult(target, param, pid, msgid, binData)
 }
 
+func (this *Child) CallChildSucc(target string, param string, pid uint32, msgid uint32, binData []byte) (*RpcData, error) {
+	return this.rpc.CallRpcSucc(target, param, pid, msgid, binData)
+}
+
 type ChildMgr struct {
 	childs map[string]*Child
 	sync.RWMutex
