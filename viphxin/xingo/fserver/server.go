@@ -151,19 +151,28 @@ func (this *Server) CallWhen(ts string, f func(v ...interface{}), args ...interf
 	}
 }
 
-/*
-func (this *Server) CallLoop(msec uint32, f func(v ...interface{}), args ...interface{}) {
-        utils.GlobalObject.Timer.CreateTimer(int64(msec), f, args, true)
-}
-
-*/
-
-func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
+func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) func() {
+	ch := make(chan int, 1)
 	go func() {
-		delayTask := timer.NewTimer(durations, f, args)
-		time.Sleep(delayTask.GetDurations())
-		utils.GlobalObject.TimeChan <- delayTask
+		endtick := time.Second*time.Duration(utils.GetFastSec()) + durations
+		for {
+			select {
+			case <-ch:
+				return
+			default:
+				if time.Second*time.Duration(utils.GetFastSec()) >= endtick {
+					delayTask := timer.NewTimer(durations, f, args)
+					utils.GlobalObject.TimeChan <- delayTask
+					return
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
 	}()
+
+	return func() {
+		ch <- 0
+	}
 }
 
 func (this *Server) CallLoop(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
