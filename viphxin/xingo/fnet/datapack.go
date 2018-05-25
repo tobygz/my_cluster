@@ -43,6 +43,7 @@ func (this *PBDataPack) Unpack(headdata []byte) (interface{}, error) {
 	// 封包太大
 	if (utils.GlobalObject.MaxPacketSize > 0 && head.Len > utils.GlobalObject.MaxPacketSize) ||
 		(utils.GlobalObject.MaxPacketSize == 0 && head.Len > MaxPacketSize) {
+		logger.Errorf("TEST: bigger than conf(%d) or def(%d), msgId: %d, len: %d data: %v", utils.GlobalObject.MaxPacketSize, MaxPacketSize, head.MsgId, head.Len, headdata)
 		return nil, packageTooBig
 	}
 

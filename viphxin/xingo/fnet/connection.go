@@ -35,7 +35,7 @@ func NewConnection(conn *net.TCPConn, sessionId uint32, protoc iface.IServerProt
 		bufobj:       bufio.NewWriterSize(conn, 1024*1024*10),
 		PropertyBag:  make(map[string]interface{}),
 		SendBuffChan: make(chan []byte, 1), //utils.GlobalObject.MaxSendChanLen),
-		ExtSendChan:  make(chan bool, 10),
+		ExtSendChan:  make(chan bool, 1),
 	}
 	//set  connection time
 	fconn.SetProperty("xingo_ctime", time.Since(time.Now()))
@@ -47,7 +47,7 @@ func (this *Connection) Start() {
 	utils.GlobalObject.TcpServer.GetConnectionMgr().Add(this)
 	this.Protoc.OnConnectionMade(this)
 	//this.StartWriteThread()
-	go this.SendThread()
+	go this.sendThreadLoopMode()
 	this.Protoc.StartReadThread(this)
 }
 
@@ -73,8 +73,8 @@ func (this *Connection) Stop() {
 	close(this.ExtSendChan)
 	close(this.SendBuffChan)
 
-	this.Conn.Close()
 	this.bufobj.Flush()
+	this.Conn.Close()
 }
 
 func (this *Connection) GetConnection() *net.TCPConn {
@@ -115,7 +115,7 @@ func (this *Connection) RemoveProperty(key string) {
 	delete(this.PropertyBag, key)
 }
 
-func (this *Connection) SendThread() {
+func (this *Connection) sendThread() {
 	bflush := false
 	for {
 		select {
@@ -136,6 +136,31 @@ func (this *Connection) SendThread() {
 			}
 		}
 
+	}
+}
+
+func (this *Connection) sendThreadLoopMode() {
+	for {
+		select {
+		case data := <-this.SendBuffChan:
+			this.bufobj.Write(data)
+		case <-this.ExtSendChan:
+			logger.Info("sendThreadLoopMode exit successful!!!")
+			return
+		}
+	hasData:
+		for {
+			select {
+			case data := <-this.SendBuffChan:
+				this.bufobj.Write(data)
+			case <-this.ExtSendChan:
+				logger.Info("sendThreadLoopMode exit successful in loop!!!")
+				return
+			default:
+				this.bufobj.Flush()
+				break hasData
+			}
+		}
 	}
 }
 
