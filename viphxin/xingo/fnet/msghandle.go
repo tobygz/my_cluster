@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/udpserv"
 	"github.com/viphxin/xingo/utils"
 	"runtime"
 	"strconv"
@@ -168,7 +167,6 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 			case data := <-taskQueue:
 				if f, ok := this.Apis[data.Pdata.MsgId]; ok {
 					//存在
-
 					//logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
 					msgId = data.Pdata.MsgId
 					pid = data.Pid
@@ -188,17 +186,6 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 				}
 			case df := <-utils.GlobalObject.TimeChan:
 				df.GetFunc().Call()
-			case udpreq := <-udpserv.GlobalUdpServ.GetChan():
-				msgId := uint32(112)
-				f, ok := this.Apis[msgId]
-				if !ok {
-					panic("fetch 112 handler fail")
-				}
-				if udpserv.GlobalUdpServ.Running {
-					pid = 0
-					utils.XingoTry(f, this.HandleError, udpreq, msgId, pid)
-				}
-
 			}
 		}
 	}(i, c)

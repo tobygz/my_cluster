@@ -10,6 +10,7 @@ type ClusterServerConf struct {
 	Name      string
 	Host      string
 	RootPort  int
+	KcpIs     bool
 	UdpPort   int
 	UdpIp     string
 	Http      []interface{} //[port, staticfile_path]

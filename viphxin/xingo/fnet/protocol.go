@@ -19,13 +19,18 @@ var (
 )
 
 type PkgAll struct {
-	Pdata *PkgData
-	Fconn iface.Iconnection
-	Pid   uint32
+	Pdata   *PkgData
+	Fconn   iface.Iconnection
+	UdpConn iface.IUdpConn
+	Pid     uint32
 }
 
 func (this *PkgAll) GetConnection() iface.Iconnection {
 	return this.Fconn
+}
+
+func (this *PkgAll) GetUdpConn() iface.IUdpConn {
+	return this.UdpConn
 }
 
 func (this *PkgAll) GetData() []byte {

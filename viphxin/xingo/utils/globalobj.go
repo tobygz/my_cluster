@@ -51,6 +51,7 @@ type GlobalObj struct {
 	EnableFlowLog    bool
 	MaxRid           uint64
 	TimeChan         chan *timer.Timer
+	KcpIs            bool
 	UdpIp            string
 	UdpPort          int
 	WebObj           iface.Iweb

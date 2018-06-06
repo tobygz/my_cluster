@@ -6,3 +6,7 @@ type IWriter interface {
 	SetProperty(string, interface{})
 	RemoveProperty(string)
 }
+
+type IUdpConn interface {
+	Send([]byte) error
+}

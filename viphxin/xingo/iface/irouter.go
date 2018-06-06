@@ -2,6 +2,7 @@ package iface
 
 type IRequest interface {
 	GetConnection() Iconnection
+	GetUdpConn() IUdpConn
 	GetData() []byte
 	GetMsgId() uint32
 }
