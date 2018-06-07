@@ -183,7 +183,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 							conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 							bfirst = false
 						} else {
-							conn.SetReadDeadline(time.Now().Add(300 * time.Second))
+							conn.SetReadDeadline(time.Now().Add(60 * 15 * time.Second))
 						}
 						_, err := conn.Read(head)
 						if err != nil {
