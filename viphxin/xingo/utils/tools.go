@@ -44,6 +44,23 @@ func ReSettingLog() {
 	// --------------------------------------------init log end
 }
 
+func XingoTry64(f func(iface.IRequest, uint32, uint64), handler func(interface{}), data iface.IRequest, msgId uint32, pid uint64) {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Info("-------------panic recover---------------")
+			if handler != nil {
+				handler(err)
+			}
+
+			buf := make([]byte, 1<<16)
+			stackSize := runtime.Stack(buf, true)
+
+			logger.Error(fmt.Sprintf("%s\n", string(buf[0:stackSize])))
+		}
+	}()
+	f(data, msgId, pid)
+}
+
 func XingoTry(f func(iface.IRequest, uint32, uint32), handler func(interface{}), data iface.IRequest, msgId, pid uint32) {
 	defer func() {
 		if err := recover(); err != nil {

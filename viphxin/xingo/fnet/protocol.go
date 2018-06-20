@@ -22,7 +22,7 @@ type PkgAll struct {
 	Pdata   *PkgData
 	Fconn   iface.Iconnection
 	UdpConn iface.IUdpConn
-	Pid     uint32
+	Pid     uint64
 }
 
 func (this *PkgAll) GetConnection() iface.Iconnection {
@@ -53,7 +53,7 @@ func NewProtocol() *Protocol {
 	}
 }
 
-func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint32, fconn iface.Iconnection) {
+func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint64, fconn iface.Iconnection) {
 	pData := &PkgData{
 		Len:   uint32(len(data)),
 		MsgId: msgId,
@@ -79,6 +79,7 @@ func (this *Protocol) AddRpcRouter(router interface{}) {
 }
 
 func (this *Protocol) InitWorker(poolsize int32) {
+	logger.Debug("called StartWorkerLoop InitWorker 222")
 	this.msghandle.StartWorkerLoop(int(poolsize))
 }
 

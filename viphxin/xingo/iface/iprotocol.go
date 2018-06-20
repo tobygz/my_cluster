@@ -18,5 +18,5 @@ type IServerProtocol interface {
 	AddRpcRouter(interface{})
 	GetMsgHandle() Imsghandle
 	GetDataPack() Idatapack
-	ManualMsgPush(msgId uint32, data []byte, pid uint32, fconn Iconnection)
+	ManualMsgPush(msgId uint32, data []byte, pid uint64, fconn Iconnection)
 }

@@ -52,7 +52,7 @@ func (this *RpcRequest) GetData() []byte {
 	return this.Rpcdata.Bin.BinData
 }
 
-func (this *RpcRequest) GetPid() uint32 {
+func (this *RpcRequest) GetPid() uint64 {
 	return this.Rpcdata.Bin.Pid
 }
 

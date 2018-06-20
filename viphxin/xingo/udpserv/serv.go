@@ -183,7 +183,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 							conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 							bfirst = false
 						} else {
-							conn.SetReadDeadline(time.Now().Add(60 * 15 * time.Second))
+							conn.SetReadDeadline(time.Now().Add(1 * 60 * time.Second))
 						}
 						_, err := conn.Read(head)
 						if err != nil {
@@ -215,10 +215,14 @@ func (this *UdpServ) StartKcpServ(port int) {
 							}
 						}
 
-						logger.Infof("kcpserv pid: %d read <%v> msgid: %d len: %d", pid, conn.RemoteAddr(), pkg.MsgId, pkg.Len)
+						/*
+							obj := utils.GlobalObject.ProtocGate.GetMsgHandle()
+								logger.Infof("kcpserv pid: %d read <%v> msgid: %d len: %d obj: %p name: %s",
+									pid, conn.RemoteAddr(), pkg.MsgId, pkg.Len, obj, obj.Name())
+						*/
 						pkgAll := &fnet.PkgAll{
 							Pdata:   pkg,
-							Pid:     pid,
+							Pid:     uint64(pid),
 							Fconn:   nil,
 							UdpConn: conn,
 						}

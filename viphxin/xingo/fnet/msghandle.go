@@ -19,6 +19,7 @@ type MsgHandle struct {
 	PoolSize  int32
 	TaskQueue []chan *PkgAll
 	Apis      map[uint32]func(iface.IRequest, uint32, uint32)
+	GApis     map[uint32]func(iface.IRequest, uint32, uint64)
 	QpsObj    *utils.QpsMgr
 	sync.RWMutex
 }
@@ -28,8 +29,13 @@ func NewMsgHandle() *MsgHandle {
 		PoolSize:  utils.GlobalObject.PoolSize,
 		TaskQueue: make([]chan *PkgAll, utils.GlobalObject.PoolSize),
 		Apis:      make(map[uint32]func(iface.IRequest, uint32, uint32)),
+		GApis:     make(map[uint32]func(iface.IRequest, uint32, uint64)),
 		QpsObj:    utils.NewQps(time.Second),
 	}
+}
+
+func (this *MsgHandle) Name() string {
+	return "MsgHandle"
 }
 
 //一致性路由,保证同一连接的数据转发给相同的goroutine
@@ -37,6 +43,8 @@ func (this *MsgHandle) DeliverToMsgQueue(pkg interface{}) {
 	data := pkg.(*PkgAll)
 
 	if utils.GlobalObject.IsGate() {
+		this.Raw_DeliverToMsgQueue(data, 0)
+	} else if utils.GlobalObject.IsGame() {
 		this.Raw_DeliverToMsgQueue(data, 0)
 	} else if utils.GlobalObject.IsNet() {
 		index := uint32(data.Fconn.GetSessionId()) % uint32(utils.GlobalObject.PoolSize)
@@ -48,9 +56,9 @@ func (this *MsgHandle) Raw_DeliverToMsgQueue(data *PkgAll, index uint32) {
 	//this.Lock()
 	//defer this.Unlock()
 	taskQueue := this.TaskQueue[index]
-	if utils.GlobalObject.EnableFlowLog {
-		logger.Debug(fmt.Sprintf("add to pool : %d", index))
-	}
+	//if utils.GlobalObject.EnableFlowLog {
+	//logger.Debug(fmt.Sprintf("add to pool : %d", index))
+	//}
 	taskQueue <- data
 }
 
@@ -59,7 +67,7 @@ func (this *MsgHandle) DoMsgFromGoRoutine(pkg interface{}) {
 	go func() {
 		if f, ok := this.Apis[data.Pdata.MsgId]; ok {
 			//存在
-			f(data, data.Pdata.MsgId, data.Pid)
+			f(data, data.Pdata.MsgId, uint32(data.Pid))
 
 		} else {
 			logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
@@ -76,17 +84,22 @@ func (this *MsgHandle) AddRouter(router iface.IRouter) {
 	apiMap := router.GetApiMap()
 	if strings.Contains(utils.GlobalObject.Name, "net") {
 		var func_msg2gate func(iface.IRequest, uint32, uint32)
+		var func_msg2game func(iface.IRequest, uint32, uint32)
 		for name, method := range apiMap {
 			if strings.Contains(name, "Api_msg2gate") == true {
 				func_msg2gate = method
 			}
+			if strings.Contains(name, "Api_msg2game") == true {
+				func_msg2game = method
+			}
 		}
 
-		for i := 0; i < 3000; i++ {
+		for i := 0; i < 1999; i++ {
 			//to gate
 			this.Apis[uint32(i)] = func_msg2gate
 		}
-		for i := 3000; i < 5000; i++ {
+		for i := 2000; i < 2999; i++ {
+			this.Apis[uint32(i)] = func_msg2game
 			//to gate
 			//this.Apis[uint32(i)] = router.Api_msg2gate
 		}
@@ -102,25 +115,48 @@ func (this *MsgHandle) AddRpcRouter(router iface.IRpcRouter) {
 }
 
 func (this *MsgHandle) AddRouter_raw(router iface.IRouter) {
-	apiMap := router.GetApiMap()
-	for name, method := range apiMap {
-		if strings.Contains(name, "Api") != true {
-			logger.Info(fmt.Sprintf("router ignore contain func: %s", name))
-			continue
+	if utils.GlobalObject.IsGame() {
+		apiMap := router.GetGApiMap()
+		for name, method := range apiMap {
+			if strings.Contains(name, "Api") != true {
+				logger.Info(fmt.Sprintf("router ignore contain func: %s", name))
+				continue
+			}
+			k := strings.Split(name, "_")
+			index, err := strconv.Atoi(k[len(k)-1])
+			if err != nil {
+				//panic("error api: " + name)
+				logger.Debug("ignore func", name)
+				continue
+			}
+			if _, ok := this.GApis[uint32(index)]; ok {
+				//存在
+				panic("repeated api " + string(index))
+			}
+			this.GApis[uint32(index)] = method
+			logger.Info(fmt.Sprintf("msghandle add api idx: %d name:%s", index, name))
 		}
-		k := strings.Split(name, "_")
-		index, err := strconv.Atoi(k[len(k)-1])
-		if err != nil {
-			//panic("error api: " + name)
-			logger.Debug("ignore func", name)
-			continue
+	} else {
+		apiMap := router.GetApiMap()
+		for name, method := range apiMap {
+			if strings.Contains(name, "Api") != true {
+				logger.Info(fmt.Sprintf("router ignore contain func: %s", name))
+				continue
+			}
+			k := strings.Split(name, "_")
+			index, err := strconv.Atoi(k[len(k)-1])
+			if err != nil {
+				//panic("error api: " + name)
+				logger.Debug("ignore func", name)
+				continue
+			}
+			if _, ok := this.Apis[uint32(index)]; ok {
+				//存在
+				panic("repeated api " + string(index))
+			}
+			this.Apis[uint32(index)] = method
+			logger.Info(fmt.Sprintf("msghandle add api idx: %d name:%s", index, name))
 		}
-		if _, ok := this.Apis[uint32(index)]; ok {
-			//存在
-			panic("repeated api " + string(index))
-		}
-		this.Apis[uint32(index)] = method
-		logger.Info(fmt.Sprintf("msghandle add api idx: %d name:%s", index, name))
 	}
 
 }
@@ -136,13 +172,15 @@ func (this *MsgHandle) NetWorkerLoop(i int, c chan *PkgAll) {
 				if f, ok := this.Apis[data.Pdata.MsgId]; ok {
 					//logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
 					msgId = data.Pdata.MsgId
-					pid = data.Pid
+					pid = uint32(data.Pid)
 					utils.XingoTry(f, this.HandleError, data, msgId, pid)
-					this.QpsObj.Add(1, 1)
-					flag, info, _ := this.QpsObj.Dump()
-					if flag {
-						logger.Prof(fmt.Sprintf("NetWorkerLoop idx: %d %s", index, info))
-					}
+					/*
+						this.QpsObj.Add(1, 1)
+						flag, info, _ := this.QpsObj.Dump()
+						if flag {
+							logger.Prof(fmt.Sprintf("NetWorkerLoop idx: %d %s", index, info))
+						}
+					*/
 				} else {
 					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
 				}
@@ -152,6 +190,40 @@ func (this *MsgHandle) NetWorkerLoop(i int, c chan *PkgAll) {
 		}
 	}(i, c)
 
+}
+
+func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
+	go func(index int, taskQueue chan *PkgAll) {
+		logger.Info(fmt.Sprintf("GameWorkerLoop init thread pool %d.", index))
+		var msgId uint32
+		var pid uint64
+		for {
+			select {
+			case data := <-taskQueue:
+				if f, ok := this.GApis[data.Pdata.MsgId]; ok {
+					logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
+					msgId = data.Pdata.MsgId
+					pid = data.Pid
+					utils.XingoTry64(f, this.HandleError, data, msgId, pid)
+					/*
+						this.QpsObj.Add(1, 1)
+						flag, info, _ := this.QpsObj.Dump()
+						if flag {
+							logger.Prof(fmt.Sprintf("GameWorkerLoop idx: %d %s", index, info))
+						}
+					*/
+				} else {
+					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
+				}
+			case req := <-utils.GlobalObject.WebObj.GetReqChan():
+				if utils.GlobalObject.WebObj != nil && req != nil {
+					utils.GlobalObject.WebObj.HandleReqCall(req)
+				}
+			case df := <-utils.GlobalObject.TimeChan:
+				df.GetFunc().Call()
+			}
+		}
+	}(i, c)
 }
 
 func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
@@ -167,15 +239,19 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 			case data := <-taskQueue:
 				if f, ok := this.Apis[data.Pdata.MsgId]; ok {
 					//存在
-					//logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
+					if data.Pdata.MsgId != 1001 {
+						logger.Debug(fmt.Sprintf("Api_%d called ", data.Pdata.MsgId))
+					}
 					msgId = data.Pdata.MsgId
-					pid = data.Pid
+					pid = uint32(data.Pid)
 					utils.XingoTry(f, this.HandleError, data, msgId, pid)
 					this.QpsObj.Add(1, 1)
-					flag, info, _ := this.QpsObj.Dump()
-					if flag {
-						logger.Prof(fmt.Sprintf("GateWorkerLoop idx: %d %s", index, info))
-					}
+					/*
+						flag, info, _ := this.QpsObj.Dump()
+						if flag {
+							logger.Prof(fmt.Sprintf("GateWorkerLoop idx: %d %s", index, info))
+						}
+					*/
 				} else {
 					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
 				}
@@ -193,10 +269,15 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 }
 
 func (this *MsgHandle) StartWorkerLoop(poolSize int) {
+	logger.Debug("called StartWorkerLoop inner")
 	if utils.GlobalObject.IsGate() {
 		c := make(chan *PkgAll, utils.GlobalObject.MaxWorkerLen)
 		this.TaskQueue[0] = c
 		this.GateWorkerLoop(0, c)
+	} else if utils.GlobalObject.IsGame() {
+		c := make(chan *PkgAll, utils.GlobalObject.MaxWorkerLen)
+		this.TaskQueue[0] = c
+		this.GameWorkerLoop(0, c)
 	} else {
 		for i := 0; i < int(utils.GlobalObject.PoolSize); i += 1 {
 			c := make(chan *PkgAll, 1)

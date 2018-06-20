@@ -49,7 +49,7 @@ func (this *MasterRpc) TakeProxy(request iface.IRpcRequest) {
 				if rname == name {
 					//包含，需要通知child节点连接当前节点
 					//rpc notice
-					child.CallChildNotForResult("RootTakeProxy", name, uint32(0), uint32(0), nil)
+					child.CallChildNotForResult("RootTakeProxy", name, uint64(0), uint32(0), nil)
 					break
 				}
 			}

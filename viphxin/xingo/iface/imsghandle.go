@@ -6,4 +6,5 @@ type Imsghandle interface {
 	AddRouter(IRouter)
 	AddRpcRouter(IRpcRouter)
 	StartWorkerLoop(int)
+	Name() string
 }

@@ -23,7 +23,7 @@ type RpcDataBin struct {
 	   4. []byte
 	   5. len
 	*/
-	Pid     uint32
+	Pid     uint64
 	Msgid   uint32
 	BinData []byte
 }
@@ -47,7 +47,7 @@ func (this *RpcData) Size() uint32 {
 	sz = sz + uint32(len(this.Result))
 
 	if this.Bin != nil {
-		sz = sz + uint32(4)                     // bin.pid
+		sz = sz + uint32(8)                     // bin.pid
 		sz = sz + uint32(4)                     //bin.msgid
 		sz = sz + uint32(4)                     //bin len
 		sz = sz + uint32(len(this.Bin.BinData)) //bin

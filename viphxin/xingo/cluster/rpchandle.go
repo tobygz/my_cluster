@@ -26,6 +26,10 @@ func NewRpcMsgHandle() *RpcMsgHandle {
 	}
 }
 
+func (this *RpcMsgHandle) Name() string {
+	return "RpcMsgHandle"
+}
+
 /*
 处理rpc消息
 */
@@ -79,7 +83,7 @@ func (this *RpcMsgHandle) DeliverToMsgQueue(pkg interface{}) {
 		logger.Debug(fmt.Sprintf("add to rpc pool : %d ", index))
 	}
 	taskQueue <- request
-	logger.Trace(fmt.Sprintf("DeliverToMsgQueue add to rpc pool : %d size: %d", index, len(taskQueue)))
+	//logger.Trace(fmt.Sprintf("DeliverToMsgQueue add to rpc pool : %d size: %d", index, len(taskQueue)))
 }
 
 func (this *RpcMsgHandle) DoMsgFromGoRoutine(pkg interface{}) {

@@ -28,7 +28,7 @@ func (this *RpcServerProtocol) GetDataPack() iface.Idatapack {
 	return this.rpcDatapack
 }
 
-func (this *RpcServerProtocol) ManualMsgPush(msgId uint32, data []byte, pid uint32, fconn iface.Iconnection) {
+func (this *RpcServerProtocol) ManualMsgPush(msgId uint32, data []byte, pid uint64, fconn iface.Iconnection) {
 	logger.Info("invalid ManualMsgPush rpcprotocol, fatal error !")
 }
 
@@ -37,6 +37,7 @@ func (this *RpcServerProtocol) AddRpcRouter(router interface{}) {
 }
 
 func (this *RpcServerProtocol) InitWorker(poolsize int32) {
+	logger.Debug("called StartWorkerLoop InitWorker 111")
 	this.rpcMsgHandle.StartWorkerLoop(int(poolsize))
 }
 
@@ -117,6 +118,7 @@ func (this *RpcClientProtocol) AddRpcRouter(router interface{}) {
 }
 
 func (this *RpcClientProtocol) InitWorker(poolsize int32) {
+	logger.Debug("called StartWorkerLoop InitWorker 000")
 	this.rpcMsgHandle.StartWorkerLoop(int(poolsize))
 }
 

@@ -77,6 +77,9 @@ func (this *Server) Start() {
 		if utils.GlobalObject.IsGate() {
 			utils.GlobalObject.ProtocGate.InitWorker(utils.GlobalObject.PoolSize)
 		}
+		if utils.GlobalObject.IsGame() {
+			utils.GlobalObject.ProtocGate.InitWorker(utils.GlobalObject.PoolSize)
+		}
 		ln, err := net.ListenTCP("tcp", &net.TCPAddr{
 			Port: this.Port,
 		})

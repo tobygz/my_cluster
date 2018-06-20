@@ -82,6 +82,10 @@ func (this *GlobalObj) IsWin() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
 }
 
+func (this *GlobalObj) IsGame() bool {
+	return strings.Contains(this.Name, "game")
+}
+
 func (this *GlobalObj) IsGate() bool {
 	return strings.Contains(this.Name, "gate")
 }

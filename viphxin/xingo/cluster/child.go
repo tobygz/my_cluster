@@ -26,7 +26,7 @@ func (this *Child) GetName() string {
 	return this.name
 }
 
-func (this *Child) CallChildNotForResult(target string, param string, pid uint32, msgid uint32, binData []byte) error {
+func (this *Child) CallChildNotForResult(target string, param string, pid uint64, msgid uint32, binData []byte) error {
 	return this.rpc.CallRpcNotForResult(target, param, pid, msgid, binData)
 }
 

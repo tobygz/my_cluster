@@ -9,6 +9,7 @@ type IRequest interface {
 
 type IRouter interface {
 	GetApiMap() map[string]func(IRequest, uint32, uint32)
+	GetGApiMap() map[string]func(IRequest, uint32, uint64)
 }
 
 type IRpcRequest interface {
@@ -19,7 +20,7 @@ type IRpcRequest interface {
 	GetParam() string
 	GetResult() string
 	GetData() []byte
-	GetPid() uint32
+	GetPid() uint64
 	GetMsgid() uint32
 	SetResult(string)
 }
