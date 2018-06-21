@@ -198,6 +198,9 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 		var msgId uint32
 		var pid uint64
 		for {
+			if utils.GlobalObject.WebObj == nil {
+				continue
+			}
 			select {
 			case data := <-taskQueue:
 				if f, ok := this.GApis[data.Pdata.MsgId]; ok {

@@ -115,7 +115,8 @@ func (this *Server) GetConnectionQueue() chan interface{} {
 func (this *Server) Stop() {
 	logger.Info("stop xingo server!!!")
 
-	if utils.GlobalObject.IsGate() {
+	//if utils.GlobalObject.IsGame() && udpserv.GlobalUdpServ != nil {
+	if utils.GlobalObject.IsGame() {
 		udpserv.GlobalUdpServ.Close()
 	}
 	if utils.GlobalObject.OnServerStop != nil {
