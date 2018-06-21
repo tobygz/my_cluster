@@ -89,6 +89,9 @@ func (this *UdpServ) GetChan() chan *DataReq {
 }
 
 func (this *UdpServ) Send(addr *net.UDPAddr, conn *kcp.UDPSession, dataBt []byte) {
+	if conn.IsClosed() {
+		return
+	}
 	st := &DataReq{
 		addr:    addr,
 		kcpconn: conn,

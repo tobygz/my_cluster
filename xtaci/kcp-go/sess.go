@@ -246,6 +246,10 @@ func (s *UDPSession) Read(b []byte) (n int, err error) {
 	}
 }
 
+func (s *UDPSession) IsClosed() bool {
+	return s.isClosed
+}
+
 // Write implements net.Conn
 func (s *UDPSession) Send(b []byte) error {
 	_, err := s.Write(b)
