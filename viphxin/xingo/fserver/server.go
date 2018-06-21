@@ -6,7 +6,7 @@ import (
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/timer"
-	//"github.com/viphxin/xingo/udpserv"
+	"github.com/viphxin/xingo/udpserv"
 	"github.com/viphxin/xingo/utils"
 	"net"
 	"os"
