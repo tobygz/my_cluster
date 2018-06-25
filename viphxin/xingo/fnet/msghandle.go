@@ -1,5 +1,21 @@
 package fnet
 
+//#include <unistd.h>
+// typedef void (*yieldFunc) ();
+//
+// void
+// bridge_yield_func(yieldFunc f)
+// {
+//      return f();
+// }
+//
+// void cyield()
+// {
+//      usleep(1000);
+//      return ;
+// }
+import "C"
+
 /*
 	find msg api
 */
@@ -197,6 +213,7 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 		logger.Info(fmt.Sprintf("GameWorkerLoop init thread pool %d.", index))
 		var msgId uint32
 		var pid uint64
+		f := C.yieldFunc(C.cyield)
 		for {
 			if utils.GlobalObject.WebObj == nil {
 				continue
@@ -224,6 +241,13 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 				}
 			case df := <-utils.GlobalObject.TimeChan:
 				df.GetFunc().Call()
+				///*
+			default:
+				C.bridge_yield_func(f)
+				if utils.GlobalObject.OnServerMsTimer != nil {
+					utils.GlobalObject.OnServerMsTimer()
+				}
+				//*/
 			}
 		}
 	}(i, c)
