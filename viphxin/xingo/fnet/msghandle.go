@@ -190,13 +190,11 @@ func (this *MsgHandle) NetWorkerLoop(i int, c chan *PkgAll) {
 					msgId = data.Pdata.MsgId
 					pid = uint32(data.Pid)
 					utils.XingoTry(f, this.HandleError, data, msgId, pid)
-					/*
-						this.QpsObj.Add(1, 1)
-						flag, info, _ := this.QpsObj.Dump()
-						if flag {
-							logger.Prof(fmt.Sprintf("NetWorkerLoop idx: %d %s", index, info))
-						}
-					*/
+					this.QpsObj.Add(1, 1)
+					flag, info, _ := this.QpsObj.Dump()
+					if flag {
+						logger.Prof(fmt.Sprintf("NetWorkerLoop idx: %d %s runtime status: %s", index, info, utils.GetRuntimeStatus()))
+					}
 				} else {
 					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
 				}
@@ -225,13 +223,11 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 					msgId = data.Pdata.MsgId
 					pid = data.Pid
 					utils.XingoTry64(f, this.HandleError, data, msgId, pid)
-					/*
-						this.QpsObj.Add(1, 1)
-						flag, info, _ := this.QpsObj.Dump()
-						if flag {
-							logger.Prof(fmt.Sprintf("GameWorkerLoop idx: %d %s", index, info))
-						}
-					*/
+					this.QpsObj.Add(1, 1)
+					flag, info, _ := this.QpsObj.Dump()
+					if flag {
+						logger.Prof(fmt.Sprintf("GameWorkerLoop idx: %d %s runtime status: %s", index, info, utils.GetRuntimeStatus()))
+					}
 				} else {
 					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
 				}
@@ -273,12 +269,10 @@ func (this *MsgHandle) GateWorkerLoop(i int, c chan *PkgAll) {
 					pid = uint32(data.Pid)
 					utils.XingoTry(f, this.HandleError, data, msgId, pid)
 					this.QpsObj.Add(1, 1)
-					/*
-						flag, info, _ := this.QpsObj.Dump()
-						if flag {
-							logger.Prof(fmt.Sprintf("GateWorkerLoop idx: %d %s", index, info))
-						}
-					*/
+					flag, info, _ := this.QpsObj.Dump()
+					if flag {
+						logger.Prof(fmt.Sprintf("GateWorkerLoop idx: %d %s runtime status: %s", index, info, utils.GetRuntimeStatus()))
+					}
 				} else {
 					logger.Error(fmt.Sprintf("not found api:  %d", data.Pdata.MsgId))
 				}

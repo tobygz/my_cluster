@@ -112,6 +112,13 @@ func Goid() int {
 	return id
 }
 
+func GetRuntimeStatus() string {
+	memst := &runtime.MemStats{}
+	runtime.ReadMemStats(memst)
+	ret := fmt.Sprintf("MemAlloc: %d numGoroutine: %d", memst.Alloc, runtime.NumGoroutine())
+	return ret
+}
+
 func PrintStack() {
 	debug.PrintStack()
 }
