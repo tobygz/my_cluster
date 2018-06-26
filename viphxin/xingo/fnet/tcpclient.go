@@ -56,7 +56,7 @@ func NewTcpClient(ip string, port int, protoc iface.IClientProtocol) *TcpClient 
 			PropertyBag: make(map[string]interface{}, 0),
 			QpsObj:      utils.NewQps(time.Second),
 			sendCh:      make(chan []byte, 1),
-			bufobj:      bufio.NewWriterSize(conn, 1024*1024*10),
+			bufobj:      bufio.NewWriterSize(conn, 1024),
 		}
 		go client.protoc.OnConnectionMade(client)
 		return client

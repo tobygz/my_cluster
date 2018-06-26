@@ -32,7 +32,7 @@ func NewConnection(conn *net.TCPConn, sessionId uint32, protoc iface.IServerProt
 		isClosed:     false,
 		SessionId:    sessionId,
 		Protoc:       protoc,
-		bufobj:       bufio.NewWriterSize(conn, 1024*1024*10),
+		bufobj:       bufio.NewWriterSize(conn, 1024),
 		PropertyBag:  make(map[string]interface{}),
 		SendBuffChan: make(chan []byte, 1), //utils.GlobalObject.MaxSendChanLen),
 		ExtSendChan:  make(chan bool, 1),
