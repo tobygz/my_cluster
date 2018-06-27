@@ -26,6 +26,12 @@ func NewRpcMsgHandle() *RpcMsgHandle {
 	}
 }
 
+func (this *RpcMsgHandle) UpdateNetIn(size int) {
+}
+
+func (this *RpcMsgHandle) UpdateNetOut(size int) {
+}
+
 func (this *RpcMsgHandle) Name() string {
 	return "RpcMsgHandle"
 }

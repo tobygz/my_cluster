@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
 )
@@ -15,10 +16,15 @@ type PkgData struct {
 	Data  []byte
 }
 
-type PBDataPack struct{}
+type PBDataPack struct {
+	bNet      bool
+	msgHandle iface.Imsghandle
+}
 
 func NewPBDataPack() *PBDataPack {
-	return &PBDataPack{}
+	obj := &PBDataPack{}
+	obj.bNet = utils.GlobalObject.IsNet()
+	return obj
 }
 
 func (this *PBDataPack) GetHeadLen() int32 {
@@ -38,6 +44,13 @@ func (this *PBDataPack) Unpack(headdata []byte) (interface{}, error) {
 	// 读取MsgId
 	if err := binary.Read(headbuf, binary.LittleEndian, &head.MsgId); err != nil {
 		return nil, err
+	}
+
+	if this.bNet {
+		if this.msgHandle == nil {
+			this.msgHandle = utils.GlobalObject.Protoc.GetMsgHandle()
+		}
+		this.msgHandle.UpdateNetIn(int(this.GetHeadLen()) + int(head.Len))
 	}
 
 	// 封包太大

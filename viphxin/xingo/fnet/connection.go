@@ -124,11 +124,13 @@ func (this *Connection) sendThread() {
 			return
 		case data := <-this.SendBuffChan:
 			this.bufobj.Write(data)
+			utils.GlobalObject.Protoc.GetMsgHandle().UpdateNetOut(len(data))
 			bflush = true
 		default:
 			if bflush == false {
 				data := <-this.SendBuffChan
 				this.bufobj.Write(data)
+				utils.GlobalObject.Protoc.GetMsgHandle().UpdateNetOut(len(data))
 				bflush = true
 			} else {
 				this.bufobj.Flush()
@@ -140,10 +142,18 @@ func (this *Connection) sendThread() {
 }
 
 func (this *Connection) sendThreadLoopMode() {
+	bNet := utils.GlobalObject.IsNet()
+	msgh := utils.GlobalObject.Protoc.GetMsgHandle()
 	for {
 		select {
 		case data := <-this.SendBuffChan:
 			this.bufobj.Write(data)
+			if bNet {
+				if msgh == nil {
+					msgh = utils.GlobalObject.Protoc.GetMsgHandle()
+				}
+				msgh.UpdateNetOut(len(data))
+			}
 		case <-this.ExtSendChan:
 			logger.Info("sendThreadLoopMode exit successful!!!")
 			return
@@ -153,6 +163,10 @@ func (this *Connection) sendThreadLoopMode() {
 			select {
 			case data := <-this.SendBuffChan:
 				this.bufobj.Write(data)
+				if msgh == nil {
+					msgh = utils.GlobalObject.Protoc.GetMsgHandle()
+				}
+				msgh.UpdateNetOut(len(data))
 			case <-this.ExtSendChan:
 				logger.Info("sendThreadLoopMode exit successful in loop!!!")
 				return

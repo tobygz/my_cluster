@@ -50,6 +50,14 @@ func NewMsgHandle() *MsgHandle {
 	}
 }
 
+func (this *MsgHandle) UpdateNetIn(size int) {
+	this.QpsObj.UpdateNetIn(size)
+}
+
+func (this *MsgHandle) UpdateNetOut(size int) {
+	this.QpsObj.UpdateNetOut(size)
+}
+
 func (this *MsgHandle) Name() string {
 	return "MsgHandle"
 }
