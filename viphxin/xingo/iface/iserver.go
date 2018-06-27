@@ -14,5 +14,5 @@ type Iserver interface {
 	CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) func()
 	CallWhen(ts string, f func(v ...interface{}), args ...interface{})
 	//CallLoop(msec uint32, f func(v ...interface{}), args ...interface{})
-	CallLoop(durations time.Duration, f func(v ...interface{}), args ...interface{})
+	CallLoop(durations time.Duration, f func(v ...interface{}), args ...interface{}) func()
 }

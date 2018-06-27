@@ -21,6 +21,7 @@ type DataReq struct {
 	addr    *net.UDPAddr
 	kcpconn *kcp.UDPSession
 	data    []byte
+	pid     uint32
 }
 
 func (this *DataReq) GetAddr() *net.UDPAddr {
@@ -88,7 +89,7 @@ func (this *UdpServ) GetChan() chan *DataReq {
 	return this.dataChan
 }
 
-func (this *UdpServ) Send(addr *net.UDPAddr, conn *kcp.UDPSession, dataBt []byte) {
+func (this *UdpServ) Send(addr *net.UDPAddr, conn *kcp.UDPSession, dataBt []byte, pid uint32) {
 	if conn.IsClosed() {
 		return
 	}
@@ -96,6 +97,7 @@ func (this *UdpServ) Send(addr *net.UDPAddr, conn *kcp.UDPSession, dataBt []byte
 		addr:    addr,
 		kcpconn: conn,
 		data:    dataBt,
+		pid:     pid,
 	}
 	this.sendChan <- st
 }
@@ -115,6 +117,7 @@ func (this *UdpServ) StartWriteThread() {
 		case st := <-this.sendChan:
 			if st.kcpconn != nil {
 				_, err := st.kcpconn.Write(st.data)
+				logger.Infof("udpserv send pid: %d data: %v", st.pid, st.data)
 				if err != nil {
 					logger.Error("udpserv err: %s", err.Error())
 				}

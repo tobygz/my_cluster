@@ -96,6 +96,7 @@ func (this *Server) Start() {
 			logger.Info("get conn: %v", conn)
 			//max client exceed
 			if this.connectionMgr.Len() >= utils.GlobalObject.MaxConn {
+				logger.Error("fatal error, connection exceed")
 				conn.Close()
 			} else {
 				go this.handleConnection(conn)
@@ -124,16 +125,8 @@ func (this *Server) Stop() {
 }
 
 func (this *Server) AddRouter(router iface.IRouter) {
-	logger.Info("AddRouter")
 	utils.GlobalObject.Protoc.GetMsgHandle().AddRouter(router)
 }
-
-/*
-func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
-	delayTask := timer.NewTimer(durations, f, args)
-	delayTask.Run()
-}
-*/
 
 func (this *Server) CallWhen(ts string, f func(v ...interface{}), args ...interface{}) {
 	loc, err_loc := time.LoadLocation("Local")
@@ -155,20 +148,35 @@ func (this *Server) CallWhen(ts string, f func(v ...interface{}), args ...interf
 }
 
 func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) func() {
+	if durations <= 0 {
+		delayTask := timer.NewTimer(durations, f, args)
+		utils.GlobalObject.TimeChan <- delayTask
+		return func() {}
+	}
+
+	tr := time.AfterFunc(durations, func() {
+		delayTask := timer.NewTimer(durations, f, args)
+		utils.GlobalObject.TimeChan <- delayTask
+	})
+
+	return func() {
+		tr.Stop()
+	}
+}
+
+func (this *Server) CallLoop(durations time.Duration, f func(v ...interface{}), args ...interface{}) func() {
 	ch := make(chan int, 1)
+	tr := time.NewTicker(durations)
 	go func() {
-		endtick := time.Second*time.Duration(utils.GetFastSec()) + durations
+		delayTask := timer.NewTimer(durations, f, args)
 		for {
 			select {
 			case <-ch:
+				tr.Stop()
+				close(ch)
 				return
-			default:
-				if time.Second*time.Duration(utils.GetFastSec()) >= endtick {
-					delayTask := timer.NewTimer(durations, f, args)
-					utils.GlobalObject.TimeChan <- delayTask
-					return
-				}
-				time.Sleep(100 * time.Millisecond)
+			case <-tr.C:
+				utils.GlobalObject.TimeChan <- delayTask
 			}
 		}
 	}()
@@ -176,16 +184,6 @@ func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}),
 	return func() {
 		ch <- 0
 	}
-}
-
-func (this *Server) CallLoop(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
-	go func() {
-		delayTask := timer.NewTimer(durations, f, args)
-		for {
-			time.Sleep(delayTask.GetDurations())
-			utils.GlobalObject.TimeChan <- delayTask
-		}
-	}()
 }
 
 func (this *Server) WaitSignal() {

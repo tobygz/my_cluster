@@ -57,6 +57,7 @@ type GlobalObj struct {
 	UdpPort          int
 	WebObj           iface.Iweb
 	IsClose          bool
+	PProfAddr        string
 }
 
 func (this *GlobalObj) IncMaxRid() uint64 {
