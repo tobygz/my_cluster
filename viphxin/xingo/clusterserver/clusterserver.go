@@ -133,6 +133,14 @@ func NewClusterServer(name, path string) *ClusterServer {
 		utils.GlobalObject.ProtocGate.GetMsgHandle()
 	}
 
+	pprofAddr := GlobalClusterServer.Cconf.GetPProfAddr(utils.GlobalObject.Name)
+	if pprofAddr != "" {
+		go func() {
+			println(http.ListenAndServe(pprofAddr, nil))
+		}()
+		logger.Info(fmt.Sprintf("server: %s pprof listen on addr: %s", utils.GlobalObject.Name, pprofAddr))
+	}
+
 	return GlobalClusterServer
 }
 
