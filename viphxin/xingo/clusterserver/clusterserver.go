@@ -144,6 +144,14 @@ func NewClusterServer(name, path string) *ClusterServer {
 	return GlobalClusterServer
 }
 
+func (this *ClusterServer) GetConfByName(name string) *cluster.ClusterServerConf {
+	conf, ok := this.Cconf.Servers[name]
+	if ok {
+		return conf
+	}
+	return nil
+}
+
 func (this *ClusterServer) GetConf() *cluster.ClusterServerConf {
 	serverconf, ok := this.Cconf.Servers[utils.GlobalObject.Name]
 	if !ok {
