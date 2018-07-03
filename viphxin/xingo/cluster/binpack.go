@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	//"github.com/golang/protobuf/proto"
+	"github.com/viphxin/xingo/utils"
 )
 
 type RpcData struct {
@@ -70,14 +72,14 @@ func (this *RpcData) Encode() []byte {
 	if err := binary.Write(outbuff, binary.LittleEndian, uint8(len(this.Key))); err != nil {
 		panic(err)
 	}
-	if err := binary.Write(outbuff, binary.LittleEndian, []byte(this.Key)); err != nil {
+	if err := binary.Write(outbuff, binary.LittleEndian, utils.Str2bytes(this.Key)); err != nil {
 		panic(err)
 	}
 	//target
 	if err := binary.Write(outbuff, binary.LittleEndian, uint8(len(this.Target))); err != nil {
 		panic(err)
 	}
-	if err := binary.Write(outbuff, binary.LittleEndian, []byte(this.Target)); err != nil {
+	if err := binary.Write(outbuff, binary.LittleEndian, utils.Str2bytes(this.Target)); err != nil {
 		panic(err)
 	}
 
@@ -85,7 +87,7 @@ func (this *RpcData) Encode() []byte {
 	if err := binary.Write(outbuff, binary.LittleEndian, uint8(len(this.Param))); err != nil {
 		panic(err)
 	}
-	if err := binary.Write(outbuff, binary.LittleEndian, []byte(this.Param)); err != nil {
+	if err := binary.Write(outbuff, binary.LittleEndian, utils.Str2bytes(this.Param)); err != nil {
 		panic(err)
 	}
 
@@ -143,7 +145,7 @@ func (this *RpcData) Decode(data []byte) {
 		panic(err)
 		return
 	}
-	this.Key = string(keySlc)
+	this.Key = utils.Bytes2str(keySlc)
 
 	//target
 	if err := binary.Read(outbuff, binary.LittleEndian, &lenv); err != nil {
@@ -155,7 +157,7 @@ func (this *RpcData) Decode(data []byte) {
 		panic(err)
 		return
 	}
-	this.Target = string(tarSlc)
+	this.Target = utils.Bytes2str(tarSlc)
 
 	//param
 	if err := binary.Read(outbuff, binary.LittleEndian, &lenv); err != nil {
@@ -167,7 +169,7 @@ func (this *RpcData) Decode(data []byte) {
 		panic(err)
 		return
 	}
-	this.Param = string(paramSlc)
+	this.Param = utils.Bytes2str(paramSlc)
 
 	//result
 	if err := binary.Read(outbuff, binary.LittleEndian, &lenv); err != nil {
@@ -179,7 +181,7 @@ func (this *RpcData) Decode(data []byte) {
 		panic(err)
 		return
 	}
-	this.Result = string(resSlc)
+	this.Result = utils.Bytes2str(resSlc)
 
 	if outbuff.Len() == 0 {
 		return

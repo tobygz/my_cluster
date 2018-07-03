@@ -48,6 +48,12 @@ func (this *RpcRequest) SetResult(result string) {
 	this.Rpcdata.Result = result
 }
 
+func (this *RpcRequest) GetConnection() iface.Iconnection {
+	return nil
+}
+func (this *RpcRequest) GetUdpConn() iface.IUdpConn {
+	return nil
+}
 func (this *RpcRequest) GetData() []byte {
 	return this.Rpcdata.Bin.BinData
 }

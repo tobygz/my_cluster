@@ -5,6 +5,8 @@ type IRequest interface {
 	GetUdpConn() IUdpConn
 	GetData() []byte
 	GetMsgId() uint32
+	GetMsgObj() interface{}
+	SetMsgObj(interface{})
 }
 
 type IRouter interface {
@@ -13,6 +15,8 @@ type IRouter interface {
 }
 
 type IRpcRequest interface {
+	GetConnection() Iconnection
+	GetUdpConn() IUdpConn
 	GetWriter() IWriter
 	GetMsgType() uint8
 	GetKey() string

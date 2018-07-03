@@ -41,6 +41,13 @@ func (this *PkgAll) GetMsgId() uint32 {
 	return this.Pdata.MsgId
 }
 
+func (this *PkgAll) SetMsgObj(inter interface{}) {
+	this.Pdata.SetMsgObj(inter)
+}
+func (this *PkgAll) GetMsgObj() interface{} {
+	return this.Pdata.PbObj
+}
+
 type Protocol struct {
 	msghandle  *MsgHandle
 	pbdatapack *PBDataPack
@@ -64,6 +71,10 @@ func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint64, fconn
 		Pid:   pid,
 		Fconn: fconn,
 	}
+
+	if utils.GlobalObject.UnmarshalPt != nil {
+		utils.GlobalObject.UnmarshalPt(pData)
+	}
 	this.msghandle.DeliverToMsgQueue(pkgAll)
 }
 
@@ -79,7 +90,6 @@ func (this *Protocol) AddRpcRouter(router interface{}) {
 }
 
 func (this *Protocol) InitWorker(poolsize int32) {
-	logger.Debug("called StartWorkerLoop InitWorker 222")
 	this.msghandle.StartWorkerLoop(int(poolsize))
 }
 
@@ -172,7 +182,7 @@ func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 			}
 		}
 
-		logger.Debug(fmt.Sprintf("msg id :%d, data len: %d", pkg.MsgId, pkg.Len))
+		//logger.Debug(fmt.Sprintf("msg id :%d, data len: %d", pkg.MsgId, pkg.Len))
 		if utils.GlobalObject.IsUsePool {
 			this.msghandle.DeliverToMsgQueue(&PkgAll{
 				Pdata: pkg,

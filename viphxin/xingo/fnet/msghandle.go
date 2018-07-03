@@ -11,7 +11,12 @@ package fnet
 //
 // void cyield()
 // {
-//      usleep(1000);
+//      usleep(1);
+//      return ;
+// }
+// void cyieldMs(int val)
+// {
+//      usleep(val);
 //      return ;
 // }
 import "C"
@@ -219,7 +224,7 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 		logger.Info(fmt.Sprintf("GameWorkerLoop init thread pool %d.", index))
 		var msgId uint32
 		var pid uint64
-		f := C.yieldFunc(C.cyield)
+		sleepf := C.yieldFunc(C.cyield)
 		for {
 			if utils.GlobalObject.WebObj == nil {
 				continue
@@ -247,7 +252,7 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 				df.GetFunc().Call()
 				///*
 			default:
-				C.bridge_yield_func(f)
+				C.bridge_yield_func(sleepf)
 				if utils.GlobalObject.OnServerMsTimer != nil {
 					utils.GlobalObject.OnServerMsTimer()
 				}

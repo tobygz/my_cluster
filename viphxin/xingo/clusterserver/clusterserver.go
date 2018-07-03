@@ -418,6 +418,22 @@ func (this *ClusterServer) RemoveRemote(name string) {
 	this.RemoteNodesMgr.RemoveChild(name)
 }
 
+func (this *ClusterServer) GetRandomChild(name string) *cluster.Child {
+	this.RLock()
+	defer this.RUnlock()
+	ch := this.RemoteNodesMgr.GetRandomChild(name)
+	if ch != nil {
+		return ch
+	}
+
+	ch = this.ChildsMgr.GetRandomChild(name)
+	if ch != nil {
+		return ch
+	}
+
+	return nil
+}
+
 func (this *ClusterServer) GetChild(name string) (*cluster.Child, error) {
 	this.RLock()
 	defer this.RUnlock()

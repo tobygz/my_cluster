@@ -23,6 +23,7 @@ type GlobalObj struct {
 	OnServerStop           func() //服务器停服回调
 	OnServerStart          func() //服务器停服回调
 	OnServerMsTimer        func() //服务器timer
+	UnmarshalPt            func(interface{})
 	ProtocGate             iface.IServerProtocol
 	Protoc                 iface.IServerProtocol
 	RpcSProtoc             iface.IServerProtocol

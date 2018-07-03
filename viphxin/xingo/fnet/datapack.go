@@ -14,6 +14,11 @@ type PkgData struct {
 	Len   uint32
 	MsgId uint32
 	Data  []byte
+	PbObj interface{}
+}
+
+func (this *PkgData) SetMsgObj(inter interface{}) {
+	this.PbObj = inter
 }
 
 type PBDataPack struct {

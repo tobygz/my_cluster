@@ -54,6 +54,8 @@ type UdpServ struct {
 	kcplistener  *kcp.Listener
 	pbdataPack   *fnet.PBDataPack
 	Running      bool
+
+	msgHandle iface.Imsghandle
 }
 
 var GlobalUdpServ *UdpServ = nil
@@ -103,6 +105,9 @@ func (this *UdpServ) Send(addr *net.UDPAddr, conn *kcp.UDPSession, dataBt []byte
 }
 
 func (this *UdpServ) StartWriteThread() {
+	if this.msgHandle == nil {
+		this.msgHandle = utils.GlobalObject.Protoc.GetMsgHandle()
+	}
 	for {
 		bOver := false
 		if bOver {
@@ -117,7 +122,7 @@ func (this *UdpServ) StartWriteThread() {
 		case st := <-this.sendChan:
 			if st.kcpconn != nil {
 				_, err := st.kcpconn.Write(st.data)
-				logger.Infof("udpserv send pid: %d data: %v", st.pid, st.data)
+				this.msgHandle.UpdateNetOut(len(st.data))
 				if err != nil {
 					logger.Error("udpserv err: %s", err.Error())
 				}
@@ -157,6 +162,9 @@ func (this *UdpServ) StartKcpServ(port int) {
 				logger.Error("!!!kcplistener.Accept err:", err)
 				return
 			}
+			if this.msgHandle == nil {
+				this.msgHandle = utils.GlobalObject.Protoc.GetMsgHandle()
+			}
 
 			go func(conn *kcp.UDPSession) {
 				conn.SetReadBuffer(4 * 1024 * 1024)
@@ -175,6 +183,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 				pidary := make([]byte, 4)
 				bfirst := true
 
+				ticker := time.NewTicker(1 * time.Millisecond)
 				for {
 					select {
 					case <-this.exitChan:
@@ -182,7 +191,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 						this.kcplistener.Close()
 						bOver = true
 						break
-					case <-time.After(0):
+					case <-ticker.C:
 
 						head := make([]byte, (*this.pbdataPack).GetHeadLen())
 						if bfirst {
@@ -214,6 +223,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 						if pkg.Len > 0 {
 							pkg.Data = make([]byte, pkg.Len)
 							_, err := conn.Read(pkg.Data)
+							this.msgHandle.UpdateNetIn(8 + 4 + int(pkg.Len))
 							if err != nil {
 								logger.Infof("kcpserv read data exit : %v msgid: %d len: %d", conn, pkg.MsgId, pkg.Len)
 								conn.Close()
