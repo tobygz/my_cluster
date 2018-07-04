@@ -106,7 +106,7 @@ func (this *UdpServ) Send(addr *net.UDPAddr, conn *kcp.UDPSession, dataBt []byte
 
 func (this *UdpServ) StartWriteThread() {
 	if this.msgHandle == nil {
-		this.msgHandle = utils.GlobalObject.Protoc.GetMsgHandle()
+		this.msgHandle = utils.GlobalObject.ProtocGate.GetMsgHandle()
 	}
 	for {
 		bOver := false
@@ -231,6 +231,10 @@ func (this *UdpServ) StartKcpServ(port int) {
 							}
 						}
 
+						if utils.GlobalObject.UnmarshalPt != nil {
+							utils.GlobalObject.UnmarshalPt(pkg)
+						}
+
 						/*
 							obj := utils.GlobalObject.ProtocGate.GetMsgHandle()
 								logger.Infof("kcpserv pid: %d read <%v> msgid: %d len: %d obj: %p name: %s",
@@ -242,6 +246,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 							Fconn:   nil,
 							UdpConn: conn,
 						}
+
 						utils.GlobalObject.ProtocGate.GetMsgHandle().DeliverToMsgQueue(pkgAll)
 					}
 				}
