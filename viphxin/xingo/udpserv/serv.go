@@ -163,7 +163,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 				return
 			}
 			if this.msgHandle == nil {
-				this.msgHandle = utils.GlobalObject.Protoc.GetMsgHandle()
+				this.msgHandle = utils.GlobalObject.ProtocGate.GetMsgHandle()
 			}
 
 			go func(conn *kcp.UDPSession) {
@@ -184,6 +184,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 				bfirst := true
 
 				ticker := time.NewTicker(1 * time.Millisecond)
+				defer ticker.Stop()
 				for {
 					select {
 					case <-this.exitChan:
@@ -223,13 +224,13 @@ func (this *UdpServ) StartKcpServ(port int) {
 						if pkg.Len > 0 {
 							pkg.Data = make([]byte, pkg.Len)
 							_, err := conn.Read(pkg.Data)
-							this.msgHandle.UpdateNetIn(8 + 4 + int(pkg.Len))
 							if err != nil {
 								logger.Infof("kcpserv read data exit : %v msgid: %d len: %d", conn, pkg.MsgId, pkg.Len)
 								conn.Close()
 								return
 							}
 						}
+						this.msgHandle.UpdateNetIn(8 + 4 + int(pkg.Len))
 
 						if utils.GlobalObject.UnmarshalPt != nil {
 							utils.GlobalObject.UnmarshalPt(pkg)
@@ -247,7 +248,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 							UdpConn: conn,
 						}
 
-						utils.GlobalObject.ProtocGate.GetMsgHandle().DeliverToMsgQueue(pkgAll)
+						this.msgHandle.DeliverToMsgQueue(pkgAll)
 					}
 				}
 			}(s.(*kcp.UDPSession))

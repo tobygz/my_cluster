@@ -11,6 +11,7 @@ func StartFastSec() {
 	go func() {
 		c1 := make(chan uint32, 1)
 		tick := time.NewTicker(time.Second)
+		defer tick.Stop()
 		for {
 			select {
 			case val := <-c1:
