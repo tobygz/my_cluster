@@ -35,12 +35,15 @@ func HttpRequestWrap(uri string, targat func(http.ResponseWriter, *http.Request)
 func ReSettingLog() {
 	// --------------------------------------------init log start
 	logger.SetConsole(GlobalObject.SetToConsole)
+	logger.SetFileMaxSize(GlobalObject.MaxFileSize, GlobalObject.LogFileUnit)
+	logger.SetToSyslog(GlobalObject.ToSyslog)
+	logger.SetSyslogAddr(GlobalObject.SyslogAddr, GlobalObject.SyslogPort)
+	logger.SetLogFileLine(GlobalObject.LogFileLine)
+	logger.SetLevel(GlobalObject.LogLevel)
 	if GlobalObject.LogFileType == logger.ROLLINGFILE {
-		logger.SetRollingFile(GlobalObject.LogPath, GlobalObject.LogName, GlobalObject.MaxLogNum,
-			GlobalObject.MaxFileSize, GlobalObject.LogFileUnit, GlobalObject.ToSyslog, GlobalObject.SyslogAddr, GlobalObject.SyslogPort)
+		logger.SetRollingFile(GlobalObject.LogPath, GlobalObject.LogName)
 	} else {
-		logger.SetRollingDaily(GlobalObject.LogPath, GlobalObject.LogName, GlobalObject.ToSyslog, GlobalObject.SyslogAddr, GlobalObject.SyslogPort)
-		logger.SetLevel(GlobalObject.LogLevel)
+		logger.SetRollingDaily(GlobalObject.LogPath, GlobalObject.LogName)
 	}
 	// --------------------------------------------init log end
 }

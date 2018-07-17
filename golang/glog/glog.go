@@ -396,16 +396,20 @@ type flushSyncWriter interface {
 	io.Writer
 }
 
-func SetAlsoToStderr(alsoToStderr bool) {
-	logging.alsoToStderr = alsoToStderr
+func SetAlsoToStderr(b bool) {
+	logging.alsoToStderr = b
 }
 
-func SetVerbosity(level string) {
-	logging.verbosity.Set(level)
+func SetVerbosity(lv string) {
+	logging.verbosity.Set(lv)
 }
 
-func SetToSyslog(toSyslog bool) {
-	logging.toSyslog = toSyslog
+func SetToSyslog(b bool) {
+	logging.toSyslog = b
+}
+
+func SetLogFileLine(b bool) {
+	logging.logFileLine = b
 }
 
 func init() {
@@ -414,6 +418,7 @@ func init() {
 	//flag.BoolVar(&logging.alsoToStderr, "alsologtostderr", false, "log to standard error as well as files")
 	logging.alsoToStderr = false
 	logging.toSyslog = false
+	logging.logFileLine = true
 	//flag.Var(&logging.verbosity, "v", "log level for V logs")
 	//flag.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr")
 	//flag.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
@@ -438,6 +443,7 @@ type loggingT struct {
 	// compatibility. TODO: does this matter enough to fix? Seems unlikely.
 	toStderr     bool // The -logtostderr flag.
 	alsoToStderr bool // The -alsologtostderr flag.
+	logFileLine  bool
 
 	// Level flag. Handled atomically.
 	stderrThreshold severity // The -stderrthreshold flag.
@@ -553,15 +559,23 @@ where the fields are defined as follows:
 	msg              The user-supplied message
 */
 func (l *loggingT) header(s severity, depth int) (*buffer, string, int) {
-	_, file, line, ok := runtime.Caller(3 + depth)
-	if !ok {
-		file = "???"
-		line = 1
-	} else {
-		slash := strings.LastIndex(file, "/")
-		if slash >= 0 {
-			file = file[slash+1:]
+	var file string
+	var line int
+	if l.logFileLine {
+		var ok bool
+		_, file, line, ok = runtime.Caller(3 + depth)
+		if !ok {
+			file = "???"
+			line = 1
+		} else {
+			slash := strings.LastIndex(file, "/")
+			if slash >= 0 {
+				file = file[slash+1:]
+			}
 		}
+	} else {
+		file = "-"
+		line = 0
 	}
 	return l.formatHeader(s, file, line), file, line
 }

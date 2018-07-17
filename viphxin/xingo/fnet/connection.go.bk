@@ -57,16 +57,12 @@ func (this *Connection) SendBuff([]byte) error {
 
 func (this *Connection) Stop() {
 	// 防止将Send放在go内造成的多线程冲突问题
-	this.sendtagGuard.Lock()
-	if this.isClosed {
-		this.sendtagGuard.Unlock()
+	if this.IsClosed() {
 		return
-	} else {
-		this.isClosed = true
 	}
-	this.sendtagGuard.Unlock()
 
 	logger.Error(fmt.Sprintf("raw fnet connection stop sessid: %d", this.SessionId))
+	this.SetClosed()
 
 	this.ExtSendChan <- true
 	this.ExtSendChan <- true
@@ -195,10 +191,7 @@ func (this *Connection) SetClosed() {
 }
 
 func (this *Connection) Send(data []byte) error {
-	this.sendtagGuard.Lock()
-	defer this.sendtagGuard.Unlock()
-
-	if !this.isClosed {
+	if !this.IsClosed() {
 		this.SendBuffChan <- data
 		return nil
 	} else {

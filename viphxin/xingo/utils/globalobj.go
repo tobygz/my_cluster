@@ -42,6 +42,7 @@ type GlobalObj struct {
 	ToSyslog         bool
 	SyslogAddr       string
 	SyslogPort       int
+	LogFileLine      bool
 	PoolSize         int32
 	IsUsePool        bool
 	MaxWorkerLen     int32
@@ -114,6 +115,7 @@ func init() {
 		SetToConsole:           true,
 		LogFileType:            2,
 		ToSyslog:               false,
+		LogFileLine:            true,
 		PoolSize:               1,
 		IsUsePool:              true,
 		MaxWorkerLen:           1024 * 2,

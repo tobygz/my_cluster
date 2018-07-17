@@ -41,12 +41,16 @@ const (
 func SetPrefix(title string) {
 }
 
-func SetConsole(isConsole bool) {
-	log.SetAlsoToStderr(isConsole)
+func SetFileMaxSize(maxSize int64, _unit UNIT) {
+	log.MaxSize = uint64(maxSize) * uint64(_unit)
 }
 
-func SetToSyslog(toSyslog bool) {
-	log.SetToSyslog(toSyslog)
+func SetConsole(b bool) {
+	log.SetAlsoToStderr(b)
+}
+
+func SetToSyslog(b bool) {
+	log.SetToSyslog(b)
 }
 
 func SetSyslogAddr(addr string, port int) {
@@ -67,18 +71,17 @@ func SetLevel(_level LEVEL) {
 	}
 }
 
-func SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT, toSyslog bool, syslogAddr string, syslogPort int) {
+func SetLogFileLine(b bool) {
+	log.SetLogFileLine(b)
+}
+
+func SetRollingFile(fileDir, fileName string) {
 	log.SetLogPath(fileDir, fileName)
-	log.MaxSize = uint64(maxSize) * uint64(_unit)
-	log.SetToSyslog(toSyslog)
-	log.SetSyslogAddr(syslogAddr, syslogPort)
 	log.ResetOutput()
 }
 
-func SetRollingDaily(fileDir, fileName string, toSyslog bool, syslogAddr string, syslogPort int) {
+func SetRollingDaily(fileDir, fileName string) {
 	log.SetLogPath(fileDir, fileName)
-	log.SetToSyslog(toSyslog)
-	log.SetSyslogAddr(syslogAddr, syslogPort)
 	log.ResetOutput()
 }
 
