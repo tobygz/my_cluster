@@ -149,6 +149,8 @@ func (this *UdpServ) StartKcpServ(port int) {
 		this.kcplistener.SetDSCP(46)
 
 		logger.Info("udpserv kcp listen: ", ports)
+		kcpidx := 0
+
 		//data := make([]byte, 5)
 		bOver := false
 		for {
@@ -165,11 +167,12 @@ func (this *UdpServ) StartKcpServ(port int) {
 			if this.msgHandle == nil {
 				this.msgHandle = utils.GlobalObject.ProtocGate.GetMsgHandle()
 			}
+			kcpidx++
 
-			go func(conn *kcp.UDPSession) {
+			go func(conn *kcp.UDPSession, idx int) {
 				conn.SetReadBuffer(4 * 1024 * 1024)
 				conn.SetWriteBuffer(4 * 1024 * 1024)
-				logger.Info("udpserv kcp new conn: ")
+				logger.Infof("udpserv kcp new conn idx: %d", idx)
 				conn.SetStreamMode(true)
 				conn.SetWindowSize(4096, 4096)
 				conn.SetNoDelay(1, 10, 2, 1)
@@ -183,17 +186,14 @@ func (this *UdpServ) StartKcpServ(port int) {
 				pidary := make([]byte, 4)
 				bfirst := true
 
-				ticker := time.NewTicker(1 * time.Millisecond)
-				defer ticker.Stop()
 				for {
 					select {
 					case <-this.exitChan:
-						logger.Info("udpserv goroutine exit")
+						logger.Infof("udpserv goroutine exit: %d", idx)
 						this.kcplistener.Close()
 						bOver = true
 						break
-					case <-ticker.C:
-
+					default:
 						head := make([]byte, (*this.pbdataPack).GetHeadLen())
 						if bfirst {
 							conn.SetReadDeadline(time.Now().Add(2 * time.Second))
@@ -203,19 +203,19 @@ func (this *UdpServ) StartKcpServ(port int) {
 						}
 						_, err := conn.Read(head)
 						if err != nil {
-							logger.Infof("kcpserv read head exit : %v", conn)
+							logger.Infof("kcpserv read head exit: %d", idx)
 							conn.Close()
 							return
 						}
 						pkgHead, err := (*this.pbdataPack).Unpack(head)
 						if err != nil {
-							logger.Infof("kcpserv read unpack exit : headdata: conn: %v err: %v", conn, err)
+							logger.Infof("kcpserv read unpack exit: %d", idx)
 							conn.Close()
 							return
 						}
 						_, err = conn.Read(pidary)
 						if err != nil {
-							logger.Infof("kcpserv read pidary exit : %v", conn)
+							logger.Infof("kcpserv read pidary exit : %d", idx)
 							conn.Close()
 							return
 						}
@@ -225,7 +225,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 							pkg.Data = make([]byte, pkg.Len)
 							_, err := conn.Read(pkg.Data)
 							if err != nil {
-								logger.Infof("kcpserv read data exit : %v msgid: %d len: %d", conn, pkg.MsgId, pkg.Len)
+								logger.Infof("kcpserv read data exit: %v msgid: %d len: %d", conn, pkg.MsgId, pkg.Len)
 								conn.Close()
 								return
 							}
@@ -248,10 +248,11 @@ func (this *UdpServ) StartKcpServ(port int) {
 							UdpConn: conn,
 						}
 
+						logger.Infof("kcpserv kcpid: %d transfer data : %v msgid: %d len: %d", idx, conn, pkg.MsgId, pkg.Len)
 						this.msgHandle.DeliverToMsgQueue(pkgAll)
 					}
 				}
-			}(s.(*kcp.UDPSession))
+			}(s.(*kcp.UDPSession), kcpidx)
 		}
 	}()
 	go this.StartWriteThread()
