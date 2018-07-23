@@ -248,7 +248,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 							UdpConn: conn,
 						}
 
-						logger.Infof("kcpserv kcpid: %d transfer data : %v msgid: %d len: %d", idx, conn, pkg.MsgId, pkg.Len)
+						logger.Infof("kcpserv kcpid: %d transfer msgid: %d len: %d", idx, pkg.MsgId, pkg.Len)
 						this.msgHandle.DeliverToMsgQueue(pkgAll)
 					}
 				}

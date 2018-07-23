@@ -33,8 +33,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
+
+var GAME_WORK_GOR_NUM int = 4
 
 type MsgHandle struct {
 	PoolSize  int32
@@ -74,7 +77,8 @@ func (this *MsgHandle) DeliverToMsgQueue(pkg interface{}) {
 	if utils.GlobalObject.IsGate() {
 		this.Raw_DeliverToMsgQueue(data, 0)
 	} else if utils.GlobalObject.IsGame() {
-		this.Raw_DeliverToMsgQueue(data, 0)
+		idx := uint32(data.Pid) % uint32(GAME_WORK_GOR_NUM)
+		this.Raw_DeliverToMsgQueue(data, idx)
 	} else if utils.GlobalObject.IsNet() {
 		index := uint32(data.Fconn.GetSessionId()) % uint32(utils.GlobalObject.PoolSize)
 		this.Raw_DeliverToMsgQueue(data, index)
@@ -235,7 +239,7 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 		logger.Info(fmt.Sprintf("GameWorkerLoop init thread pool %d.", index))
 		var msgId uint32
 		var pid uint64
-		tick := time.NewTicker(20 * time.Millisecond)
+		//tick := time.NewTicker(33 * time.Millisecond)
 		runtime.LockOSThread()
 		for {
 			if utils.GlobalObject.WebObj == nil {
@@ -262,7 +266,9 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 				}
 			case df := <-utils.GlobalObject.TimeChan:
 				df.GetFunc().Call()
-			case <-tick.C:
+				//case <-tick.C:
+			default:
+				syscall.Nanosleep(&syscall.Timespec{int64(0), int64(1000000 * 33)}, nil)
 				if utils.GlobalObject.OnServerMsTimer != nil {
 					utils.GlobalObject.OnServerMsTimer()
 				}
@@ -318,9 +324,12 @@ func (this *MsgHandle) StartWorkerLoop(poolSize int) {
 		this.TaskQueue[0] = c
 		this.GateWorkerLoop(0, c)
 	} else if utils.GlobalObject.IsGame() {
-		c := make(chan *PkgAll, utils.GlobalObject.MaxWorkerLen)
-		this.TaskQueue[0] = c
-		this.GameWorkerLoop(0, c)
+		this.TaskQueue = make([]chan *PkgAll, GAME_WORK_GOR_NUM)
+		for i := 0; i < GAME_WORK_GOR_NUM; i++ {
+			c := make(chan *PkgAll, utils.GlobalObject.MaxWorkerLen)
+			this.TaskQueue[i] = c
+			this.GameWorkerLoop(i, c)
+		}
 	} else {
 		for i := 0; i < int(utils.GlobalObject.PoolSize); i += 1 {
 			c := make(chan *PkgAll, 1)
