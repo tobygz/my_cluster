@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"runtime"
 	"strings"
 )
 
@@ -92,10 +93,18 @@ func (this *Web) Start(port string) {
 		// Handle connections in a new goroutine.
 
 		go func(ct int) {
-			logger.Debug("ready read: ", ct)
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Info("-------------panic recover---------------")
+					buf := make([]byte, 1<<16)
+					stackSize := runtime.Stack(buf, true)
+					logger.Error(fmt.Sprintf("%s\n", string(buf[0:stackSize])))
+				}
+			}()
+			//logger.Debug("ready read: ", ct)
 			strTotal := ""
 			for {
-				tbuf := make([]byte, 1024)
+				tbuf := make([]byte, 4096)
 				n, err := conn.Read(tbuf)
 				if err != nil {
 					logger.Debug("Error to read message because of ", err)
@@ -104,9 +113,12 @@ func (this *Web) Start(port string) {
 				}
 				strTotal = fmt.Sprintf("%s%s", strTotal, string(tbuf[:n]))
 
-				logger.Debug("ready after read: ", ct)
+				//logger.Debug("ready after read: ", ct)
 				if ok, retAry := checkFullReq(strTotal); ok {
 					tmpReqStr := parseReq(retAry)
+					if tmpReqStr == "" {
+						return
+					}
 					this.reqChan <- &DataReq{
 						reqStr: tmpReqStr,
 						conn:   conn,
@@ -222,6 +234,9 @@ func checkFullReq(reqStr string) (bool, []string) {
 
 func parseReq(reqAry []string) string {
 	retAry := strings.Split(reqAry[0], " ")
+	if len(retAry) < 2 {
+		return ""
+	}
 	return retAry[1]
 }
 

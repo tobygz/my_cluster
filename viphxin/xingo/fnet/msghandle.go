@@ -239,7 +239,6 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 		logger.Info(fmt.Sprintf("GameWorkerLoop init thread pool %d.", index))
 		var msgId uint32
 		var pid uint64
-		//tick := time.NewTicker(33 * time.Millisecond)
 		runtime.LockOSThread()
 		for {
 			if utils.GlobalObject.WebObj == nil {
