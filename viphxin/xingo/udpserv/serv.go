@@ -183,7 +183,10 @@ func (this *UdpServ) StartKcpServ(port int) {
 				conn.SetWriteDeadline(time.Now().Add(time.Hour))
 				//rid := uint64(0)
 				pid := uint32(0)
+				roomid := uint32(0)
+				spid := uint64(0)
 				pidary := make([]byte, 4)
+				roomidary := make([]byte, 4)
 				bfirst := true
 
 				for {
@@ -220,6 +223,15 @@ func (this *UdpServ) StartKcpServ(port int) {
 							return
 						}
 						pid = binary.LittleEndian.Uint32(pidary)
+						//for room id
+						_, err = conn.Read(roomidary)
+						if err != nil {
+							logger.Infof("kcpserv read roomidary exit : %d", idx)
+							conn.Close()
+							return
+						}
+						roomid = binary.LittleEndian.Uint32(roomidary)
+
 						pkg := pkgHead.(*fnet.PkgData)
 						if pkg.Len > 0 {
 							pkg.Data = make([]byte, pkg.Len)
@@ -241,9 +253,11 @@ func (this *UdpServ) StartKcpServ(port int) {
 								logger.Infof("kcpserv pid: %d read <%v> msgid: %d len: %d obj: %p name: %s",
 									pid, conn.RemoteAddr(), pkg.MsgId, pkg.Len, obj, obj.Name())
 						*/
+
+						spid = uint64((uint64(roomid)&0xffffffff)<<32) + uint64(uint64(pid)&0xffffffff)
 						pkgAll := &fnet.PkgAll{
 							Pdata:   pkg,
-							Pid:     uint64(pid),
+							Pid:     spid,
 							Fconn:   nil,
 							UdpConn: conn,
 						}

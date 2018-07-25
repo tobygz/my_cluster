@@ -77,7 +77,8 @@ func (this *MsgHandle) DeliverToMsgQueue(pkg interface{}) {
 	if utils.GlobalObject.IsGate() {
 		this.Raw_DeliverToMsgQueue(data, 0)
 	} else if utils.GlobalObject.IsGame() {
-		idx := uint32(data.Pid) % uint32(GAME_WORK_GOR_NUM)
+		roomid := (data.Pid & 0xffffffff00000000) >> 32
+		idx := uint32(roomid) % uint32(GAME_WORK_GOR_NUM)
 		this.Raw_DeliverToMsgQueue(data, idx)
 	} else if utils.GlobalObject.IsNet() {
 		index := uint32(data.Fconn.GetSessionId()) % uint32(utils.GlobalObject.PoolSize)
