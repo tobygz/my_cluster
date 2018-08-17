@@ -44,6 +44,7 @@ func DoCSConnectionLost(fconn iface.Iconnection) {
 	if err == nil {
 		GlobalClusterServer.RemoveChild(nodename.(string))
 	}
+	//reconnect
 }
 
 func DoCCConnectionLost(fconn iface.Iclient) {
@@ -351,7 +352,8 @@ func (this *ClusterServer) ConnectToRemote(rname string) {
 	if ok {
 		//处理master掉线，重新通知的情况
 		if _, err := this.GetRemote(rname); err != nil {
-			rserver := fnet.NewTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc)
+			//rserver := fnet.NewTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc)
+			rserver := fnet.NewReConnTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc, 1024, 60, nil)
 			logger.Info("ConnectToRemote add name: ", rname)
 			this.RemoteNodesMgr.AddChild(rname, rserver)
 			rserver.Start()
@@ -477,11 +479,11 @@ func (this *ClusterServer) AddModuleApi(mname string, module interface{}) {
 	this.modulesApi[mname] = append(this.modulesApi[mname], module)
 }
 
-func (this *ClusterServer) AddModuleHttp(mname string, module interface{}) {
+func (this *ClusterServer) AddModuleHttp(mname, prefix string, module interface{}) {
 	if utils.GlobalObject.WebObj == nil {
 		utils.GlobalObject.WebObj = web.NewWeb()
 	}
-	utils.GlobalObject.WebObj.AddHandles(module)
+	utils.GlobalObject.WebObj.AddHandles(prefix, module)
 	//this.modulesHttp[mname] = append(this.modulesHttp[mname], module)
 }
 

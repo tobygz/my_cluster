@@ -4,7 +4,7 @@ import ()
 
 type Iweb interface {
 	StartParseReq()
-	AddHandles(router interface{})
+	AddHandles(prefix string, router interface{})
 	Start(port string)
 	RawClose()
 	HandleReqCall(req interface{})

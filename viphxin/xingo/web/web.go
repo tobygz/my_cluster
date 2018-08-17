@@ -134,12 +134,12 @@ func (this *Web) Start(port string) {
 	logger.Info("web thread exited...")
 }
 
-func (this *Web) AddHandles(router interface{}) {
+func (this *Web) AddHandles(prefix string, router interface{}) {
 	value := reflect.ValueOf(router)
 	tp := value.Type()
 	for i := 0; i < value.NumMethod(); i++ {
 		name := tp.Method(i).Name
-		name = fmt.Sprintf("/%s", strings.ToLower(name))
+		name = fmt.Sprintf("%s/%s", prefix, strings.ToLower(name))
 		logger.Info("http AddHandles add ", name)
 		this.apis[name] = value.Method(i)
 	}
@@ -189,8 +189,14 @@ func (this *Web) handleRequest(conn net.Conn, reqBody string) {
 		valSend = tmpret[0].String()
 	}
 
-	valSend = fmt.Sprintf("<html><head></head><body>%s</body></html>", valSend)
-	sendByte := fmt.Sprintf("HTTP/1.0 200 OK\r\nContent-Type:text/html;charset=utf-8\r\nContent-Length:%d\r\n\r\n%s", len(valSend), valSend)
+	var contentTp string
+	if strings.HasPrefix(reqName, "/json") {
+		contentTp = "application/json"
+	} else {
+		contentTp = "text/html"
+		valSend = fmt.Sprintf("<html><head></head><body>%s</body></html>", valSend)
+	}
+	sendByte := fmt.Sprintf("HTTP/1.0 200 OK\r\nContent-Type:%s;charset=utf-8\r\nContent-Length:%d\r\n\r\n%s", contentTp, len(valSend), valSend)
 	conn.Write([]byte(sendByte))
 	conn.Close()
 }
