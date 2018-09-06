@@ -64,6 +64,7 @@ func (this *RpcServerProtocol) StartReadThread(fconn iface.Iconnection) {
 		}
 		pkgHead, err := this.rpcDatapack.Unpack(headdata)
 		if err != nil {
+			logger.Error(err)
 			fconn.Stop()
 			return
 		}
@@ -72,6 +73,7 @@ func (this *RpcServerProtocol) StartReadThread(fconn iface.Iconnection) {
 		if pkg.Len > 0 {
 			pkg.Data = make([]byte, pkg.Len)
 			if _, err := io.ReadFull(fconn.GetConnection(), pkg.Data); err != nil {
+				logger.Error(err)
 				fconn.Stop()
 				return
 			} else {
@@ -80,7 +82,11 @@ func (this *RpcServerProtocol) StartReadThread(fconn iface.Iconnection) {
 					Rpcdata: &RpcData{},
 				}
 
-				rpcRequest.Rpcdata.Decode(pkg.Data)
+				if !rpcRequest.Rpcdata.Decode(pkg.Data) {
+					logger.Infof("parse rpcdata failed.")
+					fconn.Stop()
+					return
+				}
 
 				//logger.Trace(fmt.Sprintf("rpc call server. data len: %d. MsgType: %d", pkg.Len, int(rpcRequest.Rpcdata.MsgType)))
 				if utils.GlobalObject.PoolSize > 0 && rpcRequest.Rpcdata.MsgType != RESPONSE {

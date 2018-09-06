@@ -118,7 +118,7 @@ func init() {
 		LogFileLine:            true,
 		PoolSize:               1,
 		IsUsePool:              true,
-		MaxWorkerLen:           1024 * 2,
+		MaxWorkerLen:           1024,
 		MaxSendChanLen:         1024,
 		FrameSpeed:             30,
 		EnableFlowLog:          false,

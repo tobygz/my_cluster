@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	//"encoding/gob"
 	"errors"
-	//"fmt"
+	"fmt"
 	"github.com/viphxin/xingo/fnet"
 	"github.com/viphxin/xingo/iface"
 )
@@ -88,7 +88,8 @@ func (this *RpcDataPack) Unpack(headdata []byte) (interface{}, error) {
 
 	// 封包太大
 	if rp.Len > fnet.MaxPacketSize {
-		return nil, errors.New("rpc packege too big!!!")
+		info := fmt.Sprintf("rpc package exceed: %d, rpc size: %d", fnet.MaxPacketSize, rp.Len)
+		return nil, errors.New(info)
 	}
 
 	return rp, nil

@@ -47,21 +47,23 @@ func NewTcpClient(ip string, port int, protoc iface.IClientProtocol) *TcpClient 
 		Port: port,
 		Zone: "",
 	}
-	conn, err := net.DialTCP("tcp", nil, addr)
-	if err == nil {
-		client := &TcpClient{
-			conn:        conn,
-			addr:        addr,
-			protoc:      protoc,
-			PropertyBag: make(map[string]interface{}, 0),
-			QpsObj:      utils.NewQps(time.Second),
-			sendCh:      make(chan []byte, 1),
-			bufobj:      bufio.NewWriterSize(conn, 1024),
+	for {
+		conn, err := net.DialTCP("tcp", nil, addr)
+		if err == nil {
+			client := &TcpClient{
+				conn:        conn,
+				addr:        addr,
+				protoc:      protoc,
+				PropertyBag: make(map[string]interface{}, 0),
+				QpsObj:      utils.NewQps(time.Second),
+				sendCh:      make(chan []byte, 1),
+				bufobj:      bufio.NewWriterSize(conn, 1024),
+			}
+			go client.protoc.OnConnectionMade(client)
+			return client
+		} else {
+			time.Sleep(time.Second)
 		}
-		go client.protoc.OnConnectionMade(client)
-		return client
-	} else {
-		panic(err)
 	}
 
 }

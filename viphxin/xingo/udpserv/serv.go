@@ -10,12 +10,27 @@ import (
 	"github.com/viphxin/xingo/utils"
 	"github.com/xtaci/kcp-go"
 	"net"
-	"strings"
+	//"strings"
 	"sync"
 	"time"
 )
 
 const g_udp_type = 1 //0: udp 1:kcp
+const pool_size = 1500
+
+var (
+	pkgPool sync.Pool
+	bufPool sync.Pool
+)
+
+func init() {
+	pkgPool.New = func() interface{} {
+		return &fnet.PkgAll{}
+	}
+	bufPool.New = func() interface{} {
+		return make([]byte, pool_size)
+	}
+}
 
 type DataReq struct {
 	addr    *net.UDPAddr
@@ -55,6 +70,9 @@ type UdpServ struct {
 	pbdataPack   *fnet.PBDataPack
 	Running      bool
 
+	RecvChan  map[uint32]*chan *fnet.PkgAll
+	CloseChan map[uint32]chan bool
+
 	msgHandle iface.Imsghandle
 }
 
@@ -69,14 +87,67 @@ func NewUdpServ(port int, kcpEnable bool) {
 		sendChan:     make(chan *DataReq, 1024),
 		exitChan:     make(chan int, 10),
 		exitSendChan: make(chan int, 10),
+		CloseChan:    make(map[uint32]chan bool),
 		pbdataPack:   fnet.NewPBDataPack(),
+		RecvChan:     make(map[uint32]*chan *fnet.PkgAll),
 		Running:      true,
 	}
-	if !kcpEnable {
-		GlobalUdpServ.StartServ(port)
-	} else {
-		GlobalUdpServ.StartKcpServ(port)
+	fmt.Println("NewUdpServ!!!")
+	GlobalUdpServ.StartKcpServ(port)
+}
+
+func (this *UdpServ) OperCloseCh(pid uint32) {
+	this.Lock()
+	defer this.Unlock()
+	ch, ok := this.CloseChan[pid]
+	if ok {
+		ch <- false
 	}
+	delete(this.CloseChan, pid)
+}
+
+func (this *UdpServ) AddCloseCh(pid uint32, ch chan bool) {
+	this.Lock()
+	defer this.Unlock()
+	this.CloseChan[pid] = ch
+}
+
+func (this *UdpServ) PushPkg(i interface{}) {
+	pkg := i.(*fnet.PkgAll)
+	slc := pkg.Pdata.Data
+	if slc != nil {
+		bufPool.Put(slc)
+	}
+	pkgPool.Put(pkg)
+}
+
+func (this *UdpServ) GetChRecv(roomid uint32) *chan *fnet.PkgAll {
+	this.Lock()
+	defer this.Unlock()
+	val, ok := this.RecvChan[roomid]
+	if !ok {
+		ch := make(chan *fnet.PkgAll, 512)
+		this.RecvChan[roomid] = &ch
+		logger.Infof("init ch: %p roomid: %d", &ch, roomid)
+		return &ch
+	}
+	return val
+}
+func (this *UdpServ) DelChRecv(roomid uint32) {
+	this.Lock()
+	defer this.Unlock()
+	/*
+		chp, ok := this.RecvChan[roomid]
+		if ok {
+			close(*chp)
+		}
+	*/
+	delete(this.RecvChan, roomid)
+}
+func (this *UdpServ) UpdateChRecv(roomid uint32, chp *chan *fnet.PkgAll) {
+	this.Lock()
+	defer this.Unlock()
+	this.RecvChan[roomid] = chp
 }
 
 func (this *UdpServ) Close() {
@@ -151,7 +222,6 @@ func (this *UdpServ) StartKcpServ(port int) {
 		logger.Info("udpserv kcp listen: ", ports)
 		kcpidx := 0
 
-		//data := make([]byte, 5)
 		bOver := false
 		for {
 			if bOver {
@@ -170,6 +240,12 @@ func (this *UdpServ) StartKcpServ(port int) {
 			kcpidx++
 
 			go func(conn *kcp.UDPSession, idx int) {
+				var chp *chan *fnet.PkgAll
+				defer func() {
+					if chp != nil {
+						//close(*chp)
+					}
+				}()
 				conn.SetReadBuffer(4 * 1024 * 1024)
 				conn.SetWriteBuffer(4 * 1024 * 1024)
 				logger.Infof("udpserv kcp new conn idx: %d", idx)
@@ -189,13 +265,22 @@ func (this *UdpServ) StartKcpServ(port int) {
 				roomidary := make([]byte, 4)
 				bfirst := true
 
+				chClose := make(chan bool, 12)
+				isAdd := false
 				for {
 					select {
+					case <-chClose:
+						logger.Infof("udpserv goroutine exit: %d", idx)
+						//this.kcplistener.Close()
+						return
+						//bOver = true
+						//break
 					case <-this.exitChan:
 						logger.Infof("udpserv goroutine exit: %d", idx)
 						this.kcplistener.Close()
-						bOver = true
-						break
+						return
+						//bOver = true
+						//break
 					default:
 						head := make([]byte, (*this.pbdataPack).GetHeadLen())
 						if bfirst {
@@ -223,6 +308,10 @@ func (this *UdpServ) StartKcpServ(port int) {
 							return
 						}
 						pid = binary.LittleEndian.Uint32(pidary)
+						if !isAdd {
+							this.AddCloseCh(uint32(pid), chClose)
+							isAdd = true
+						}
 						//for room id
 						_, err = conn.Read(roomidary)
 						if err != nil {
@@ -234,7 +323,10 @@ func (this *UdpServ) StartKcpServ(port int) {
 
 						pkg := pkgHead.(*fnet.PkgData)
 						if pkg.Len > 0 {
-							pkg.Data = make([]byte, pkg.Len)
+							//pkg.Data = pkgAll.Data
+							//pkg.Data = make([]byte, pkg.Len)
+							//pkg.Data = tmpData[:pkg.Len]
+							pkg.Data = bufPool.Get().([]byte)[:pkg.Len]
 							_, err := conn.Read(pkg.Data)
 							if err != nil {
 								logger.Infof("kcpserv read data exit: %v msgid: %d len: %d", conn, pkg.MsgId, pkg.Len)
@@ -242,7 +334,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 								return
 							}
 						}
-						this.msgHandle.UpdateNetIn(8 + 4 + int(pkg.Len))
+						//this.msgHandle.UpdateNetIn(8 + 4 + int(pkg.Len))
 
 						if utils.GlobalObject.UnmarshalPt != nil {
 							utils.GlobalObject.UnmarshalPt(pkg)
@@ -255,82 +347,22 @@ func (this *UdpServ) StartKcpServ(port int) {
 						*/
 
 						spid = uint64((uint64(roomid)&0xffffffff)<<32) + uint64(uint64(pid)&0xffffffff)
-						pkgAll := &fnet.PkgAll{
-							Pdata:   pkg,
-							Pid:     spid,
-							Fconn:   nil,
-							UdpConn: conn,
-						}
+						pkgAll := pkgPool.Get().(*fnet.PkgAll)
+						pkgAll.Pdata = pkg
+						pkgAll.Pid = spid
+						pkgAll.UdpConn = conn
 
-						logger.Infof("kcpserv kcpid: %d transfer msgid: %d len: %d", idx, pkg.MsgId, pkg.Len)
-						this.msgHandle.DeliverToMsgQueue(pkgAll)
+						if chp == nil {
+							chp = GlobalUdpServ.GetChRecv(roomid)
+						}
+						*chp <- pkgAll
+
+						//logger.Infof("kcpserv kcpid: %d transfer msgid: %d len: %d roomid: %d ch: %p", idx, pkg.MsgId, pkg.Len, roomid, chp)
+						//this.msgHandle.DeliverToMsgQueue(pkgAll)
 					}
 				}
 			}(s.(*kcp.UDPSession), kcpidx)
 		}
 	}()
 	go this.StartWriteThread()
-}
-
-func (this *UdpServ) StartServ(port int) {
-	go func() {
-		for {
-			bOver := false
-			if bOver {
-				close(this.exitSendChan)
-				close(this.sendChan)
-				break
-			}
-
-			select {
-			case <-this.exitSendChan:
-				bOver = true
-			case st := <-this.sendChan:
-				_, err := this.listener.WriteToUDP(st.data, st.addr)
-				if err != nil {
-					logger.Error("udpserv err: %s", err.Error())
-				}
-			}
-		}
-	}()
-	go func() {
-		var err error
-		this.listener, err = net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("0.0.0.0"), Port: port})
-		if err != nil {
-			panic(err)
-			return
-		}
-		logger.Info("udpserv listen: %s", this.listener.LocalAddr().String())
-		data := make([]byte, 1024)
-		bOver := false
-		for {
-			if bOver {
-				close(this.dataChan)
-				close(this.exitChan)
-				break
-			}
-			select {
-			case <-this.exitChan:
-				logger.Info("udpserv goroutine exit")
-				bOver = true
-				break
-			case <-time.After(0):
-				this.listener.SetReadDeadline(time.Now().Add(time.Millisecond * 500))
-				n, remoteAddr, err := this.listener.ReadFromUDP(data)
-				if err != nil {
-					if strings.Contains(err.Error(), "timeout") {
-						continue
-					}
-					logger.Error("error during read: %s", err)
-				}
-				//fmt.Printf("<%s> %s\n", remoteAddr, data[:n])
-				st := &DataReq{
-					addr:    remoteAddr,
-					kcpconn: nil,
-					data:    data[:n],
-				}
-				this.dataChan <- st
-			}
-		}
-	}()
 }

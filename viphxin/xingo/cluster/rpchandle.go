@@ -114,7 +114,11 @@ func (this *RpcMsgHandle) AddRpcRouter(router iface.IRpcRouter) {
 
 func (this *RpcMsgHandle) StartWorkerLoop(poolSize int) {
 	for i := 0; i < poolSize; i += 1 {
-		c := make(chan *RpcRequest, utils.GlobalObject.MaxWorkerLen)
+		nowSize := utils.GlobalObject.MaxWorkerLen
+		if utils.GlobalObject.IsGate() {
+			nowSize = nowSize * 2
+		}
+		c := make(chan *RpcRequest, nowSize)
 		this.TaskQueue[i] = c
 		go func(index int, taskQueue chan *RpcRequest) {
 			logger.Info(fmt.Sprintf("init rpc thread pool %d.", index))

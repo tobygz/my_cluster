@@ -33,11 +33,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
+	//"syscall"
 	"time"
 )
 
-var GAME_WORK_GOR_NUM int = 4
+var GAME_WORK_GOR_NUM int = 32
 
 type MsgHandle struct {
 	PoolSize  int32
@@ -240,7 +240,7 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 		logger.Info(fmt.Sprintf("GameWorkerLoop init thread pool %d.", index))
 		var msgId uint32
 		var pid uint64
-		runtime.LockOSThread()
+		//tick := time.NewTicker(time.Millisecond * 66)
 		for {
 			if utils.GlobalObject.WebObj == nil {
 				continue
@@ -266,12 +266,12 @@ func (this *MsgHandle) GameWorkerLoop(i int, c chan *PkgAll) {
 				}
 			case df := <-utils.GlobalObject.TimeChan:
 				df.GetFunc().Call()
-				//case <-tick.C:
-			default:
-				syscall.Nanosleep(&syscall.Timespec{int64(0), int64(1000000 * 33)}, nil)
-				if utils.GlobalObject.OnServerMsTimer != nil {
-					utils.GlobalObject.OnServerMsTimer()
-				}
+				/*
+					case <-tick.C:
+						if utils.GlobalObject.OnServerMsTimer != nil {
+							utils.GlobalObject.OnServerMsTimer()
+						}
+				*/
 			}
 		}
 	}(i, c)

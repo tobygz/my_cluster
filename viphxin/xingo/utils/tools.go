@@ -119,9 +119,19 @@ func Goid() int {
 func GetRuntimeStatus() string {
 	memst := &runtime.MemStats{}
 	runtime.ReadMemStats(memst)
+	ret := fmt.Sprintf("MemAlloc: %d Sys: %d Lookups: %d Mallocs: %d Frees: %d HeapAlloc: %d HeapSys: %d HeapIdle: %d HeapInuse: %d HeapReleased: %d HeapObjects: %d StackInuse: %d StackSys: %d MSpanInuse: %d MSpanSys: %d MCacheInuse: %d MCacheSys: %d BuckHashSys: %d GCSys: %d OtherSys: %d  numGoroutine: %d",
+		memst.Alloc, memst.Sys, memst.Lookups, memst.Mallocs, memst.Frees, memst.HeapAlloc, memst.HeapSys, memst.HeapIdle, memst.HeapInuse, memst.HeapReleased, memst.HeapObjects, memst.StackInuse, memst.StackSys, memst.MSpanInuse, memst.MSpanSys, memst.MCacheInuse, memst.MCacheSys, memst.BuckHashSys, memst.GCSys, memst.OtherSys, runtime.NumGoroutine())
+	return ret
+}
+
+/*
+func GetRuntimeStatus() string {
+	memst := &runtime.MemStats{}
+	runtime.ReadMemStats(memst)
 	ret := fmt.Sprintf("MemAlloc: %d numGoroutine: %d", memst.Alloc, runtime.NumGoroutine())
 	return ret
 }
+*/
 
 func PrintStack() {
 	debug.PrintStack()
