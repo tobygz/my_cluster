@@ -145,31 +145,6 @@ func (this *Web) AddHandles(prefix string, router interface{}) {
 	}
 }
 
-func parseReqBody(reqBody string) *map[string]string {
-	ret := make(map[string]string, 0)
-	ary0 := strings.Split(reqBody, "?")
-	ret["innerreqname"] = ary0[0]
-	if len(ary0) < 2 {
-		return &ret
-	}
-
-	//ary0[1]  a=3&b=2
-	ary1 := strings.Split(ary0[1], "&")
-	if len(ary1) == 0 {
-		return &ret
-	}
-	//ary1 [a=3],[b=2]
-	for _, elem := range ary1 {
-		ary2 := strings.Split(elem, "=")
-		if len(ary2) != 2 {
-			continue
-		}
-		ret[ary2[0]] = ary2[1]
-	}
-
-	return &ret
-}
-
 func (this *Web) handleRequest(conn net.Conn, reqBody string) {
 	defer conn.Close()
 
