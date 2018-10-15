@@ -1,6 +1,7 @@
 package web
 
 import (
+	json "github.com/json-iterator/go"
 	"strconv"
 	"strings"
 )
@@ -27,27 +28,35 @@ func parseReqBody(reqBody string) *CgiInput {
 		if len(ary2) != 2 {
 			continue
 		}
-		(*ret)[ary2[0]] = ary2[1]
+		(*ret)[strings.ToLower(ary2[0])] = ary2[1]
 	}
 
 	return ret
 }
 
-func (c *CgiInput) Exist(key string) bool {
+func (c *CgiInput) ToString() string {
+	ret, _ := json.Marshal(c)
+	return string(ret)
+}
+
+func (c *CgiInput) Exist(k string) bool {
+	key := strings.ToLower(k)
 	if _, ok := (*c)[key]; ok {
 		return true
 	}
 	return false
 }
 
-func (c *CgiInput) String(key string) string {
+func (c *CgiInput) String(k string) string {
+	key := strings.ToLower(k)
 	if v, ok := (*c)[key]; ok {
 		return v
 	}
 	return ""
 }
 
-func (c *CgiInput) Int(key string) int {
+func (c *CgiInput) Int(k string) int {
+	key := strings.ToLower(k)
 	if v, ok := (*c)[key]; ok {
 		u, _ := strconv.Atoi(v)
 		return u
@@ -55,7 +64,8 @@ func (c *CgiInput) Int(key string) int {
 	return 0
 }
 
-func (c *CgiInput) Uint32(key string) uint32 {
+func (c *CgiInput) Uint32(k string) uint32 {
+	key := strings.ToLower(k)
 	if v, ok := (*c)[key]; ok {
 		u, _ := strconv.ParseUint(v, 10, 32)
 		return uint32(u)
@@ -63,7 +73,8 @@ func (c *CgiInput) Uint32(key string) uint32 {
 	return 0
 }
 
-func (c *CgiInput) Uint64(key string) uint64 {
+func (c *CgiInput) Uint64(k string) uint64 {
+	key := strings.ToLower(k)
 	if v, ok := (*c)[key]; ok {
 		u, _ := strconv.ParseUint(v, 10, 64)
 		return u
@@ -71,7 +82,8 @@ func (c *CgiInput) Uint64(key string) uint64 {
 	return 0
 }
 
-func (c *CgiInput) Bool(key string) bool {
+func (c *CgiInput) Bool(k string) bool {
+	key := strings.ToLower(k)
 	if v, ok := (*c)[key]; ok {
 		switch v {
 		case "true", "yes", "T", "Y":
