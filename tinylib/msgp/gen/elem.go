@@ -235,6 +235,7 @@ type Map struct {
 	common
 	Keyidx string // key variable name
 	Validx string // value variable name
+	Key    Elem   // key element
 	Value  Elem   // value element
 }
 
@@ -249,6 +250,7 @@ ridx:
 		goto ridx
 	}
 
+	m.Key.SetVarname(m.Keyidx)
 	m.Value.SetVarname(m.Validx)
 }
 
@@ -256,17 +258,18 @@ func (m *Map) TypeName() string {
 	if m.common.alias != "" {
 		return m.common.alias
 	}
-	m.common.Alias("map[string]" + m.Value.TypeName())
+	m.common.Alias("map[" + m.Key.TypeName() + "]" + m.Value.TypeName())
 	return m.common.alias
 }
 
 func (m *Map) Copy() Elem {
 	g := *m
+	g.Key = m.Key.Copy()
 	g.Value = m.Value.Copy()
 	return &g
 }
 
-func (m *Map) Complexity() int { return 2 + m.Value.Complexity() }
+func (m *Map) Complexity() int { return m.Key.Complexity() + m.Value.Complexity() }
 
 type Slice struct {
 	common

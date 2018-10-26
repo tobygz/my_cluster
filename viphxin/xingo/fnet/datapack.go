@@ -3,7 +3,7 @@ package fnet
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	//"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
@@ -77,7 +77,8 @@ func (this *PBDataPack) Pack(msgId uint32, data interface{}) (out []byte, err er
 	}
 
 	if err != nil {
-		logger.Error(fmt.Sprintf("marshaling error:  %s", err))
+		panic(err)
+		//logger.Error(fmt.Sprintf("marshaling error:  %s", err))
 	}
 	// 写Len
 	if err = binary.Write(outbuff, binary.LittleEndian, uint32(len(dataBytes))); err != nil {

@@ -21,15 +21,16 @@ type TcpClient struct {
 	conn          *net.TCPConn
 	addr          *net.TCPAddr
 	protoc        iface.IClientProtocol
-	PropertyBag   map[string]interface{}
+	propertyBag   map[string]interface{}
 	reconnCB      func(iface.Iclient)
 	maxRetry      int
 	retryInterval int
 	sendtagGuard  sync.RWMutex
 	propertyLock  sync.RWMutex
 	sendCh        chan []byte
-	QpsObj        *utils.QpsMgr
+	exitCh        chan bool
 	bufobj        *bufio.Writer
+	QpsObj        *utils.QpsMgr
 }
 
 func NewReConnTcpClient(ip string, port int, protoc iface.IClientProtocol, maxRetry int,
@@ -54,9 +55,10 @@ func NewTcpClient(ip string, port int, protoc iface.IClientProtocol) *TcpClient 
 				conn:        conn,
 				addr:        addr,
 				protoc:      protoc,
-				PropertyBag: make(map[string]interface{}, 0),
+				propertyBag: make(map[string]interface{}, 0),
 				QpsObj:      utils.NewQps(time.Second),
 				sendCh:      make(chan []byte, 1),
+				exitCh:      make(chan bool, 1),
 				bufobj:      bufio.NewWriterSize(conn, 1024),
 			}
 			go client.protoc.OnConnectionMade(client)
@@ -69,7 +71,7 @@ func NewTcpClient(ip string, port int, protoc iface.IClientProtocol) *TcpClient 
 }
 
 func (this *TcpClient) Start() {
-	go this.SendThread()
+	go this.sendThread()
 	go this.protoc.StartReadThread(this)
 }
 
@@ -83,7 +85,7 @@ func (this *TcpClient) Stop(isforce bool) {
 		this.protoc.OnConnectionLost(this)
 	} else {
 		//retry
-		if this.ReConnection() {
+		if this.reconnection() {
 			//顺序很重要，先把读数据用的goroutine开启
 			this.Start()
 			if this.reconnCB != nil {
@@ -93,13 +95,19 @@ func (this *TcpClient) Stop(isforce bool) {
 	}
 }
 
-func (this *TcpClient) ReConnection() bool {
-	logger.Info("reconnection ...")
+func (this *TcpClient) resetConn(conn *net.TCPConn) {
+	this.conn = conn
+	this.exitCh = make(chan bool, 1)
+	this.bufobj = bufio.NewWriterSize(conn, 1024)
+}
+
+func (this *TcpClient) reconnection() bool {
+	logger.Info("TcpClient reconnection ...")
 	for i := 1; i <= this.maxRetry; i++ {
 		logger.Info("retry time ", i)
 		conn, err := net.DialTCP("tcp", nil, this.addr)
 		if err == nil {
-			this.conn = conn
+			this.resetConn(conn)
 			return true
 		} else {
 			d, err := time.ParseDuration(fmt.Sprintf("%ds", this.retryInterval))
@@ -124,7 +132,7 @@ func (this *TcpClient) Send(data []byte) error {
 }
 
 /*
-func (this *TcpClient) SendThread() {
+func (this *TcpClient) sendThread() {
 	for {
 		data := <-this.sendCh
 		n, err := this.conn.Write(data)
@@ -141,24 +149,28 @@ func (this *TcpClient) SendThread() {
 }
 */
 
-func (this *TcpClient) SendThread() {
-	logger.Info("TcpClient SendThread started")
-	bflush := false
+func (this *TcpClient) sendThread() {
+	logger.Info("TcpClient sendThread started")
 	for {
 		select {
 		case data := <-this.sendCh:
 			this.bufobj.Write(data)
-			bflush = true
-		default:
-			if bflush == false {
-				data := <-this.sendCh
+		case <-this.exitCh:
+			logger.Info("TcpClient sendThread exit successful!!!")
+			return
+		}
+	hasData:
+		for {
+			select {
+			case data := <-this.sendCh:
 				this.bufobj.Write(data)
-				bflush = true
-			} else {
+			case <-this.exitCh:
+				logger.Info("TcpClient sendThread exit successful in loop!!!")
+				return
+			default:
 				this.bufobj.Flush()
-				bflush = false
+				break hasData
 			}
-
 		}
 	}
 }
@@ -171,7 +183,7 @@ func (this *TcpClient) GetProperty(key string) (interface{}, error) {
 	this.propertyLock.RLock()
 	defer this.propertyLock.RUnlock()
 
-	value, ok := this.PropertyBag[key]
+	value, ok := this.propertyBag[key]
 	if ok {
 		return value, nil
 	} else {
@@ -183,12 +195,12 @@ func (this *TcpClient) SetProperty(key string, value interface{}) {
 	this.propertyLock.Lock()
 	defer this.propertyLock.Unlock()
 
-	this.PropertyBag[key] = value
+	this.propertyBag[key] = value
 }
 
 func (this *TcpClient) RemoveProperty(key string) {
 	this.propertyLock.Lock()
 	defer this.propertyLock.Unlock()
 
-	delete(this.PropertyBag, key)
+	delete(this.propertyBag, key)
 }

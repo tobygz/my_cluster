@@ -85,8 +85,8 @@ func NewUdpServ(port int, kcpEnable bool) {
 	GlobalUdpServ = &UdpServ{
 		dataChan:     make(chan *DataReq, 32),
 		sendChan:     make(chan *DataReq, 1024),
-		exitChan:     make(chan int, 10),
-		exitSendChan: make(chan int, 10),
+		exitChan:     make(chan int, 1),
+		exitSendChan: make(chan int, 1),
 		CloseChan:    make(map[uint32]chan bool),
 		pbdataPack:   fnet.NewPBDataPack(),
 		RecvChan:     make(map[uint32]*chan *fnet.PkgAll),
@@ -179,8 +179,8 @@ func (this *UdpServ) StartWriteThread() {
 	if this.msgHandle == nil {
 		this.msgHandle = utils.GlobalObject.ProtocGate.GetMsgHandle()
 	}
+	bOver := false
 	for {
-		bOver := false
 		if bOver {
 			close(this.exitSendChan)
 			close(this.sendChan)

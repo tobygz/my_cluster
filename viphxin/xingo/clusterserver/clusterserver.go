@@ -73,6 +73,20 @@ func ReConnectMasterCB(fconn iface.Iclient) {
 	}
 }
 
+func ReConnectParentCB(fconn iface.Iclient) {
+	rname, err := fconn.GetProperty("remote")
+	if err == nil {
+		rpc, err := GlobalClusterServer.GetRemote(rname.(string))
+		if err != nil {
+			logger.Errorf("get remote %s fail, error: %s", rname.(string), err)
+			fconn.Stop(true)
+		} else {
+			rpc.CallChildNotForResult("TakeProxy", utils.GlobalObject.Name, uint64(0), uint32(0), nil)
+			logger.Infof("ReConnectParentCB this.name: %s, names: %s", utils.GlobalObject.Name, rname.(string))
+		}
+	}
+}
+
 func NewClusterServer(name, path string) *ClusterServer {
 	logger.SetPrefix(fmt.Sprintf("[%s]", strings.ToUpper(name)))
 	cconf, err := cluster.NewClusterConf(path)
@@ -353,7 +367,7 @@ func (this *ClusterServer) ConnectToRemote(rname string) {
 		//处理master掉线，重新通知的情况
 		if _, err := this.GetRemote(rname); err != nil {
 			//rserver := fnet.NewTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc)
-			rserver := fnet.NewReConnTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc, 1024, 60, nil)
+			rserver := fnet.NewReConnTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc, 1024, 60, ReConnectParentCB)
 			logger.Info("ConnectToRemote add name: ", rname)
 			this.RemoteNodesMgr.AddChild(rname, rserver)
 			rserver.Start()

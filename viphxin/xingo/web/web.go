@@ -177,6 +177,9 @@ func (this *Web) handleRequest(conn net.Conn, reqBody string) {
 }
 
 func (this *Web) RawClose() {
+	if this.l == nil {
+		return
+	}
 	this.l.Close()
 	close(this.reqChan)
 	this.run = false
