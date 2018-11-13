@@ -2,13 +2,14 @@ package utils
 
 import (
 	"encoding/json"
-	"github.com/viphxin/xingo/iface"
-	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/timer"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/viphxin/xingo/iface"
+	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/timer"
 )
 
 type GlobalObj struct {
@@ -22,6 +23,8 @@ type GlobalObj struct {
 	OnClusterCClosed       func(fconn iface.Iclient)
 	OnServerStop           func() //服务器停服回调
 	OnServerStart          func() //服务器停服回调
+	OnServerMsTimer        func() //服务器timer
+	UnmarshalPt            func(interface{})
 	ProtocGate             iface.IServerProtocol
 	Protoc                 iface.IServerProtocol
 	RpcSProtoc             iface.IServerProtocol
@@ -37,6 +40,10 @@ type GlobalObj struct {
 	LogLevel         logger.LEVEL
 	SetToConsole     bool
 	LogFileType      int32
+	ToSyslog         bool
+	SyslogAddr       string
+	SyslogPort       int
+	LogFileLine      bool
 	PoolSize         int32
 	IsUsePool        bool
 	MaxWorkerLen     int32
@@ -48,10 +55,12 @@ type GlobalObj struct {
 	EnableFlowLog    bool
 	MaxRid           uint64
 	TimeChan         chan *timer.Timer
+	KcpIs            bool
 	UdpIp            string
 	UdpPort          int
 	WebObj           iface.Iweb
 	IsClose          bool
+	PProfAddr        string
 }
 
 func (this *GlobalObj) IncMaxRid() uint64 {
@@ -78,6 +87,10 @@ func (this *GlobalObj) IsWin() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
 }
 
+func (this *GlobalObj) IsGame() bool {
+	return strings.Contains(this.Name, "game")
+}
+
 func (this *GlobalObj) IsGate() bool {
 	return strings.Contains(this.Name, "gate")
 }
@@ -86,10 +99,6 @@ func (this *GlobalObj) IsNet() bool {
 }
 func (this *GlobalObj) IsAdmin() bool {
 	return strings.Contains(this.Name, "admin")
-}
-
-func (this *GlobalObj) IsMaster() bool {
-	return this.Name == "master"
 }
 
 var GlobalObject *GlobalObj
@@ -101,14 +110,16 @@ func init() {
 		LogPath:                "./log",
 		LogName:                "server.log",
 		MaxLogNum:              10,
-		MaxFileSize:            100,
+		MaxFileSize:            1024 * 1024 * 10,
 		LogFileUnit:            logger.KB,
 		LogLevel:               logger.ERROR,
 		SetToConsole:           true,
-		LogFileType:            1,
+		LogFileType:            2,
+		ToSyslog:               false,
+		LogFileLine:            true,
 		PoolSize:               1,
 		IsUsePool:              true,
-		MaxWorkerLen:           1024 * 2,
+		MaxWorkerLen:           1024,
 		MaxSendChanLen:         1024,
 		FrameSpeed:             30,
 		EnableFlowLog:          false,

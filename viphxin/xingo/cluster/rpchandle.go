@@ -5,25 +5,35 @@ package cluster
 */
 import (
 	"fmt"
+	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
 	"math/rand"
-	"reflect"
 	"time"
 )
 
 type RpcMsgHandle struct {
 	PoolSize  int32
 	TaskQueue []chan *RpcRequest
-	Apis      map[string]reflect.Value
+	Apis      map[string]func(iface.IRpcRequest)
 }
 
 func NewRpcMsgHandle() *RpcMsgHandle {
 	return &RpcMsgHandle{
 		PoolSize:  utils.GlobalObject.PoolSize,
 		TaskQueue: make([]chan *RpcRequest, utils.GlobalObject.PoolSize),
-		Apis:      make(map[string]reflect.Value),
+		Apis:      make(map[string]func(iface.IRpcRequest)),
 	}
+}
+
+func (this *RpcMsgHandle) UpdateNetIn(size int) {
+}
+
+func (this *RpcMsgHandle) UpdateNetOut(size int) {
+}
+
+func (this *RpcMsgHandle) Name() string {
+	return "RpcMsgHandle"
 }
 
 /*
@@ -31,7 +41,7 @@ func NewRpcMsgHandle() *RpcMsgHandle {
 */
 func (this *RpcMsgHandle) DoMsg(request *RpcRequest) {
 
-	//logger.Debug(fmt.Sprintf("+++++++++ rpc %s now_name: %s ", request.Rpcdata.Target, utils.GlobalObject.Name))
+	//logger.Debug(fmt.Sprintf("+++++++++ rpc: %s now_name: %s ", request.Rpcdata.Target, utils.GlobalObject.Name))
 	if request.Rpcdata.MsgType == RESPONSE && request.Rpcdata.Key != "" {
 		//放回异步结果
 		AResultGlobalObj.FillAsyncResult(request.Rpcdata.Key, request.Rpcdata)
@@ -42,19 +52,23 @@ func (this *RpcMsgHandle) DoMsg(request *RpcRequest) {
 			//存在
 			st := time.Now()
 			if request.Rpcdata.MsgType == REQUEST_FORRESULT {
-				ret := f.Call([]reflect.Value{reflect.ValueOf(request)})
-				packdata, err := utils.GlobalObject.RpcCProtoc.GetDataPack().Pack(0, &RpcData{
+				f(request)
+				rpcdata := &RpcData{
 					MsgType: RESPONSE,
-					Result:  ret[0].Interface().(map[string]interface{}),
+					Result:  request.GetResult(),
 					Key:     request.Rpcdata.Key,
-				})
-				if err == nil {
-					request.Fconn.Send(packdata)
-				} else {
-					logger.Error(err)
 				}
+				request.Fconn.Send(rpcdata.Encode())
 			} else if request.Rpcdata.MsgType == REQUEST_NORESULT {
-				f.Call([]reflect.Value{reflect.ValueOf(request)})
+				f(request)
+			} else if request.Rpcdata.MsgType == REQUEST_SUCC {
+				rpcdata := &RpcData{
+					MsgType: RESPONSE,
+					Result:  "succ",
+					Key:     request.Rpcdata.Key,
+				}
+				request.Fconn.Send(rpcdata.Encode())
+				f(request)
 			}
 
 			if utils.GlobalObject.EnableFlowLog {
@@ -76,7 +90,7 @@ func (this *RpcMsgHandle) DeliverToMsgQueue(pkg interface{}) {
 		logger.Debug(fmt.Sprintf("add to rpc pool : %d ", index))
 	}
 	taskQueue <- request
-	logger.Trace(fmt.Sprintf("DeliverToMsgQueue add to rpc pool : %d size: %d", index, len(taskQueue)))
+	//logger.Trace(fmt.Sprintf("DeliverToMsgQueue add to rpc pool : %d size: %d", index, len(taskQueue)))
 }
 
 func (this *RpcMsgHandle) DoMsgFromGoRoutine(pkg interface{}) {
@@ -84,17 +98,17 @@ func (this *RpcMsgHandle) DoMsgFromGoRoutine(pkg interface{}) {
 	go this.DoMsg(request)
 }
 
-func (this *RpcMsgHandle) AddRouter(router interface{}) {
-	value := reflect.ValueOf(router)
-	tp := value.Type()
-	for i := 0; i < value.NumMethod(); i += 1 {
-		name := tp.Method(i).Name
+func (this *RpcMsgHandle) AddRouter(router iface.IRouter) {
+}
 
+func (this *RpcMsgHandle) AddRpcRouter(router iface.IRpcRouter) {
+	apiMap := router.GetRpcMap()
+	for name, method := range apiMap {
 		if _, ok := this.Apis[name]; ok {
 			//存在
 			panic("repeated rpc " + name)
 		}
-		this.Apis[name] = value.Method(i)
+		this.Apis[name] = method
 		logger.Info(fmt.Sprintf("now_name: %s add RpcMsgHandle: %s ", utils.GlobalObject.Name, name))
 	}
 }
@@ -102,7 +116,11 @@ func (this *RpcMsgHandle) AddRouter(router interface{}) {
 func (this *RpcMsgHandle) StartWorkerLoop(poolSize int) {
 	poolSize = 1
 	for i := 0; i < poolSize; i += 1 {
-		c := make(chan *RpcRequest, utils.GlobalObject.MaxWorkerLen)
+		nowSize := utils.GlobalObject.MaxWorkerLen
+		if utils.GlobalObject.IsGate() {
+			nowSize = nowSize * 2
+		}
+		c := make(chan *RpcRequest, nowSize)
 		this.TaskQueue[i] = c
 		go func(index int, taskQueue chan *RpcRequest) {
 			logger.Info(fmt.Sprintf("init rpc thread pool %d.", index))

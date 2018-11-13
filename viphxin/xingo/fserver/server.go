@@ -2,15 +2,16 @@ package fserver
 
 import (
 	"fmt"
+	"net"
+	"os"
+	"os/signal"
+
 	"github.com/viphxin/xingo/fnet"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/timer"
 	"github.com/viphxin/xingo/udpserv"
 	"github.com/viphxin/xingo/utils"
-	"net"
-	"os"
-	"os/signal"
 	//"syscall"
 	"time"
 )
@@ -21,7 +22,7 @@ var PER_CNT uint32 = 5
 func init() {
 	utils.GlobalObject.Protoc = fnet.NewProtocol()
 	// --------------------------------------------init log start
-	utils.ReSettingLog()
+	//utils.ReSettingLog()
 	// --------------------------------------------init log end
 }
 
@@ -61,11 +62,13 @@ func (this *Server) initSessIdPool() {
 
 func (this *Server) handleConnection(conn *net.TCPConn) {
 	genNum := <-this.sessIdPool
+	//logger.Prof("handleConnection genNum:", genNum)
 	conn.SetNoDelay(true)
 	conn.SetKeepAlive(true)
-	// conn.SetDeadline(time.Now().Add(time.Minute * 2))
+	conn.SetWriteBuffer(1024 * 1024)
+	conn.SetReadBuffer(1024 * 1024)
 	fconn := fnet.NewConnection(conn, genNum, utils.GlobalObject.Protoc)
-	go fconn.Start()
+	fconn.Start()
 }
 
 func (this *Server) Start() {
@@ -73,6 +76,9 @@ func (this *Server) Start() {
 	go func() {
 		utils.GlobalObject.Protoc.InitWorker(utils.GlobalObject.PoolSize)
 		if utils.GlobalObject.IsGate() {
+			utils.GlobalObject.ProtocGate.InitWorker(utils.GlobalObject.PoolSize)
+		}
+		if utils.GlobalObject.IsGame() {
 			utils.GlobalObject.ProtocGate.InitWorker(utils.GlobalObject.PoolSize)
 		}
 		ln, err := net.ListenTCP("tcp", &net.TCPAddr{
@@ -91,6 +97,7 @@ func (this *Server) Start() {
 			logger.Info("get conn: %v", conn)
 			//max client exceed
 			if this.connectionMgr.Len() >= utils.GlobalObject.MaxConn {
+				logger.Error("fatal error, connection exceed")
 				conn.Close()
 			} else {
 				this.handleConnection(conn)
@@ -110,7 +117,7 @@ func (this *Server) GetConnectionQueue() chan interface{} {
 func (this *Server) Stop() {
 	logger.Info("stop xingo server!!!")
 
-	if utils.GlobalObject.IsGate() {
+	if utils.GlobalObject.IsGame() {
 		udpserv.GlobalUdpServ.Close()
 	}
 	if utils.GlobalObject.OnServerStop != nil {
@@ -118,17 +125,9 @@ func (this *Server) Stop() {
 	}
 }
 
-func (this *Server) AddRouter(router interface{}) {
-	logger.Info("AddRouter")
+func (this *Server) AddRouter(router iface.IRouter) {
 	utils.GlobalObject.Protoc.GetMsgHandle().AddRouter(router)
 }
-
-/*
-func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
-	delayTask := timer.NewTimer(durations, f, args)
-	delayTask.Run()
-}
-*/
 
 func (this *Server) CallWhen(ts string, f func(v ...interface{}), args ...interface{}) {
 	loc, err_loc := time.LoadLocation("Local")
@@ -149,29 +148,43 @@ func (this *Server) CallWhen(ts string, f func(v ...interface{}), args ...interf
 	}
 }
 
-/*
-func (this *Server) CallLoop(msec uint32, f func(v ...interface{}), args ...interface{}) {
-        utils.GlobalObject.Timer.CreateTimer(int64(msec), f, args, true)
-}
-
-*/
-
-func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
-	go func() {
+func (this *Server) CallLater(durations time.Duration, f func(v ...interface{}), args ...interface{}) func() {
+	if durations <= 0 {
 		delayTask := timer.NewTimer(durations, f, args)
-		time.Sleep(delayTask.GetDurations())
 		utils.GlobalObject.TimeChan <- delayTask
-	}()
+		return func() {}
+	}
+
+	tr := time.AfterFunc(durations, func() {
+		delayTask := timer.NewTimer(durations, f, args)
+		utils.GlobalObject.TimeChan <- delayTask
+	})
+
+	return func() {
+		tr.Stop()
+	}
 }
 
-func (this *Server) CallLoop(durations time.Duration, f func(v ...interface{}), args ...interface{}) {
+func (this *Server) CallLoop(durations time.Duration, f func(v ...interface{}), args ...interface{}) func() {
+	ch := make(chan int, 1)
+	tr := time.NewTicker(durations)
 	go func() {
 		delayTask := timer.NewTimer(durations, f, args)
 		for {
-			time.Sleep(delayTask.GetDurations())
-			utils.GlobalObject.TimeChan <- delayTask
+			select {
+			case <-ch:
+				tr.Stop()
+				close(ch)
+				return
+			case <-tr.C:
+				utils.GlobalObject.TimeChan <- delayTask
+			}
 		}
 	}()
+
+	return func() {
+		ch <- 0
+	}
 }
 
 func (this *Server) WaitSignal() {

@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"compress/zlib"
 	"fmt"
+	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"io"
 	"math/rand"
 	"net/http"
-	"reflect"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 )
 
 func HttpRequestWrap(uri string, targat func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
@@ -34,17 +35,20 @@ func HttpRequestWrap(uri string, targat func(http.ResponseWriter, *http.Request)
 func ReSettingLog() {
 	// --------------------------------------------init log start
 	logger.SetConsole(GlobalObject.SetToConsole)
+	logger.SetFileMaxSize(GlobalObject.MaxFileSize, GlobalObject.LogFileUnit)
+	logger.SetToSyslog(GlobalObject.ToSyslog)
+	logger.SetSyslogAddr(GlobalObject.SyslogAddr, GlobalObject.SyslogPort)
+	logger.SetLogFileLine(GlobalObject.LogFileLine)
+	logger.SetLevel(GlobalObject.LogLevel)
 	if GlobalObject.LogFileType == logger.ROLLINGFILE {
-		logger.SetRollingFile(GlobalObject.LogPath, GlobalObject.LogName,
-			GlobalObject.MaxLogNum, GlobalObject.MaxFileSize, GlobalObject.LogFileUnit)
+		logger.SetRollingFile(GlobalObject.LogPath, GlobalObject.LogName)
 	} else {
 		logger.SetRollingDaily(GlobalObject.LogPath, GlobalObject.LogName)
-		logger.SetLevel(GlobalObject.LogLevel)
 	}
 	// --------------------------------------------init log end
 }
 
-func XingoTry(f reflect.Value, args []reflect.Value, handler func(interface{})) {
+func XingoTry64(f func(iface.IRequest, uint32, uint64), handler func(interface{}), data iface.IRequest, msgId uint32, pid uint64) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Info("-------------panic recover---------------")
@@ -58,7 +62,24 @@ func XingoTry(f reflect.Value, args []reflect.Value, handler func(interface{})) 
 			logger.Error(fmt.Sprintf("%s\n", string(buf[0:stackSize])))
 		}
 	}()
-	f.Call(args)
+	f(data, msgId, pid)
+}
+
+func XingoTry(f func(iface.IRequest, uint32, uint32), handler func(interface{}), data iface.IRequest, msgId, pid uint32) {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Info("-------------panic recover---------------")
+			if handler != nil {
+				handler(err)
+			}
+
+			buf := make([]byte, 1<<16)
+			stackSize := runtime.Stack(buf, true)
+
+			logger.Error(fmt.Sprintf("%s\n", string(buf[0:stackSize])))
+		}
+	}()
+	f(data, msgId, pid)
 }
 
 func ZlibCompress(src []byte) []byte {
@@ -95,15 +116,53 @@ func Goid() int {
 	return id
 }
 
+func GetRuntimeStatus() string {
+	memst := &runtime.MemStats{}
+	runtime.ReadMemStats(memst)
+	ret := fmt.Sprintf("MemAlloc: %d Sys: %d Lookups: %d Mallocs: %d Frees: %d HeapAlloc: %d HeapSys: %d HeapIdle: %d HeapInuse: %d HeapReleased: %d HeapObjects: %d StackInuse: %d StackSys: %d MSpanInuse: %d MSpanSys: %d MCacheInuse: %d MCacheSys: %d BuckHashSys: %d GCSys: %d OtherSys: %d  numGoroutine: %d",
+		memst.Alloc, memst.Sys, memst.Lookups, memst.Mallocs, memst.Frees, memst.HeapAlloc, memst.HeapSys, memst.HeapIdle, memst.HeapInuse, memst.HeapReleased, memst.HeapObjects, memst.StackInuse, memst.StackSys, memst.MSpanInuse, memst.MSpanSys, memst.MCacheInuse, memst.MCacheSys, memst.BuckHashSys, memst.GCSys, memst.OtherSys, runtime.NumGoroutine())
+	return ret
+}
+
+/*
+func GetRuntimeStatus() string {
+	memst := &runtime.MemStats{}
+	runtime.ReadMemStats(memst)
+	ret := fmt.Sprintf("MemAlloc: %d numGoroutine: %d", memst.Alloc, runtime.NumGoroutine())
+	return ret
+}
+*/
+
 func PrintStack() {
 	debug.PrintStack()
 }
 
 var g_rand *rand.Rand
 
+func initRandSource() {
+	g_rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+}
+
 func GetRandVal(limit int) int {
 	if g_rand == nil {
-		g_rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+		initRandSource()
 	}
 	return g_rand.Intn(limit)
+}
+
+func GetRandUVal(limit uint32) uint32 {
+	if g_rand == nil {
+		initRandSource()
+	}
+	return uint32(g_rand.Int31n(int32(limit)))
+}
+
+func Str2bytes(s string) []byte {
+	x := (*[2]uintptr)(unsafe.Pointer(&s))
+	h := [3]uintptr{x[0], x[1], x[1]}
+	return *(*[]byte)(unsafe.Pointer(&h))
+}
+
+func Bytes2str(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }

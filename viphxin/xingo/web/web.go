@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"runtime"
 	"strings"
 )
 
@@ -92,10 +93,18 @@ func (this *Web) Start(port string) {
 		// Handle connections in a new goroutine.
 
 		go func(ct int) {
-			logger.Debug("ready read: ", ct)
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Info("-------------panic recover---------------")
+					buf := make([]byte, 1<<16)
+					stackSize := runtime.Stack(buf, true)
+					logger.Error(fmt.Sprintf("%s\n", string(buf[0:stackSize])))
+				}
+			}()
+			//logger.Debug("ready read: ", ct)
 			strTotal := ""
 			for {
-				tbuf := make([]byte, 1024)
+				tbuf := make([]byte, 4096)
 				n, err := conn.Read(tbuf)
 				if err != nil {
 					logger.Debug("Error to read message because of ", err)
@@ -104,9 +113,12 @@ func (this *Web) Start(port string) {
 				}
 				strTotal = fmt.Sprintf("%s%s", strTotal, string(tbuf[:n]))
 
-				logger.Debug("ready after read: ", ct)
+				//logger.Debug("ready after read: ", ct)
 				if ok, retAry := checkFullReq(strTotal); ok {
 					tmpReqStr := parseReq(retAry)
+					if tmpReqStr == "" {
+						return
+					}
 					this.reqChan <- &DataReq{
 						reqStr: tmpReqStr,
 						conn:   conn,
@@ -122,40 +134,15 @@ func (this *Web) Start(port string) {
 	logger.Info("web thread exited...")
 }
 
-func (this *Web) AddHandles(router interface{}) {
+func (this *Web) AddHandles(prefix string, router interface{}) {
 	value := reflect.ValueOf(router)
 	tp := value.Type()
 	for i := 0; i < value.NumMethod(); i++ {
 		name := tp.Method(i).Name
-		name = fmt.Sprintf("/%s", strings.ToLower(name))
+		name = fmt.Sprintf("%s/%s", prefix, strings.ToLower(name))
 		logger.Info("http AddHandles add ", name)
 		this.apis[name] = value.Method(i)
 	}
-}
-
-func parseReqBody(reqBody string) *map[string]string {
-	ret := make(map[string]string, 0)
-	ary0 := strings.Split(reqBody, "?")
-	ret["innerreqname"] = ary0[0]
-	if len(ary0) < 2 {
-		return &ret
-	}
-
-	//ary0[1]  a=3&b=2
-	ary1 := strings.Split(ary0[1], "&")
-	if len(ary1) == 0 {
-		return &ret
-	}
-	//ary1 [a=3],[b=2]
-	for _, elem := range ary1 {
-		ary2 := strings.Split(elem, "=")
-		if len(ary2) != 2 {
-			continue
-		}
-		ret[ary2[0]] = ary2[1]
-	}
-
-	return &ret
 }
 
 func (this *Web) handleRequest(conn net.Conn, reqBody string) {
@@ -177,13 +164,22 @@ func (this *Web) handleRequest(conn net.Conn, reqBody string) {
 		valSend = tmpret[0].String()
 	}
 
-	valSend = fmt.Sprintf("<html><head></head><body>%s</body></html>", valSend)
-	sendByte := fmt.Sprintf("HTTP/1.0 200 OK\r\nContent-Type:text/html;charset=utf-8\r\nContent-Length:%d\r\n\r\n%s", len(valSend), valSend)
+	var contentTp string
+	if strings.HasPrefix(reqName, "/json") {
+		contentTp = "application/json"
+	} else {
+		contentTp = "text/html"
+		valSend = fmt.Sprintf("<html><head></head><body>%s</body></html>", valSend)
+	}
+	sendByte := fmt.Sprintf("HTTP/1.0 200 OK\r\nContent-Type:%s;charset=utf-8\r\nContent-Length:%d\r\n\r\n%s", contentTp, len(valSend), valSend)
 	conn.Write([]byte(sendByte))
 	conn.Close()
 }
 
 func (this *Web) RawClose() {
+	if this.l == nil {
+		return
+	}
 	this.l.Close()
 	close(this.reqChan)
 	this.run = false
@@ -222,6 +218,9 @@ func checkFullReq(reqStr string) (bool, []string) {
 
 func parseReq(reqAry []string) string {
 	retAry := strings.Split(reqAry[0], " ")
+	if len(retAry) < 2 {
+		return ""
+	}
 	return retAry[1]
 }
 

@@ -1,22 +1,13 @@
 package cluster
 
 import (
-	"bytes"
 	"encoding/binary"
-	"encoding/gob"
-	"errors"
+
 	"fmt"
+
 	"github.com/viphxin/xingo/fnet"
 	"github.com/viphxin/xingo/iface"
 )
-
-type RpcData struct {
-	MsgType RpcSignal              `json:"msgtype"`
-	Key     string                 `json:"key,omitempty"`
-	Target  string                 `json:"target,omitempty"`
-	Args    []interface{}          `json:"args,omitempty"`
-	Result  map[string]interface{} `json:"result,omitempty"`
-}
 
 type RpcPackege struct {
 	Len  int32
@@ -28,9 +19,50 @@ type RpcRequest struct {
 	Rpcdata *RpcData
 }
 
-func init() {
-	gob.Register(RpcData{})
-	gob.Register([]interface{}{})
+func (this *RpcRequest) GetWriter() iface.IWriter {
+	return this.Fconn
+}
+
+func (this *RpcRequest) GetMsgType() uint8 {
+	return this.Rpcdata.MsgType
+}
+
+func (this *RpcRequest) GetKey() string {
+	return this.Rpcdata.Key
+}
+
+func (this *RpcRequest) GetTarget() string {
+	return this.Rpcdata.Target
+}
+
+func (this *RpcRequest) GetParam() string {
+	return this.Rpcdata.Param
+}
+
+func (this *RpcRequest) GetResult() string {
+	return this.Rpcdata.Result
+}
+
+func (this *RpcRequest) SetResult(result string) {
+	this.Rpcdata.Result = result
+}
+
+func (this *RpcRequest) GetConnection() iface.Iconnection {
+	return nil
+}
+func (this *RpcRequest) GetUdpConn() iface.IUdpConn {
+	return nil
+}
+func (this *RpcRequest) GetData() []byte {
+	return this.Rpcdata.Bin.BinData
+}
+
+func (this *RpcRequest) GetPid() uint64 {
+	return this.Rpcdata.Bin.Pid
+}
+
+func (this *RpcRequest) GetMsgid() uint32 {
+	return this.Rpcdata.Bin.Msgid
 }
 
 type RpcDataPack struct{}
@@ -43,75 +75,54 @@ func (this *RpcDataPack) GetHeadLen() int32 {
 	return 4
 }
 
-func (this *RpcDataPack) Unpack(headdata []byte) (interface{}, error) {
-	headbuf := bytes.NewReader(headdata)
+func (this *RpcDataPack) Unpack(head []byte, pkgItf interface{}) (interface{}, error) {
+	pkg, ok := pkgItf.(*RpcPackege)
+	if !ok {
+		pkg = &RpcPackege{}
+	}
 
-	rp := &RpcPackege{}
+	if len(head) != int(this.GetHeadLen()) {
+		return nil, fmt.Errorf("invalid head length")
+	}
 
 	// 读取Len
-	if err := binary.Read(headbuf, binary.LittleEndian, &rp.Len); err != nil {
-		return nil, err
-	}
+	pkg.Len = int32(binary.LittleEndian.Uint32(head))
 
 	// 封包太大
-	if rp.Len > fnet.MaxPacketSize {
-		return nil, errors.New("rpc packege too big!!!")
+	if pkg.Len > fnet.MaxPacketSize {
+		return nil, fmt.Errorf("rpc package exceed: %d, rpc size: %d", fnet.MaxPacketSize, pkg.Len)
 	}
 
-	return rp, nil
+	return pkg, nil
 }
 
-//func (this *RpcDataPack) Pack(msgId uint32, pkg interface{}) (out []byte, err error) {
-//  outbuff := bytes.NewBuffer([]byte{})
-//  // 进行编码
-//  dataBytes := []byte{}
-//  data := pkg.(*RpcData)
-//  if data != nil {
-//      dataBytes, err = json.Marshal(data)
-//  }
-//
-//  if err != nil {
-//      fmt.Println(fmt.Sprintf("json marshaling error:  %s", err))
-//  }
-//  // 写Len
-//  if err = binary.Write(outbuff, binary.LittleEndian, uint32(len(dataBytes))); err != nil {
-//      return
-//  }
-//
-//  //all pkg data
-//  if err = binary.Write(outbuff, binary.LittleEndian, dataBytes); err != nil {
-//      return
-//  }
-//
-//  out = outbuff.Bytes()
-//  return
-//
-//}
+func (this *RpcDataPack) Pack(msgId uint32, pkg interface{}, b []byte) (o []byte, err error) {
+	/*
+		gob.Register(RpcData{})
+		gob.Register([]interface{}{})
+		outbuff := bytes.NewBuffer([]byte{})
+		// 进行编码
+		databuff := bytes.NewBuffer([]byte{})
+		data := pkg.(*RpcData)
+		if data != nil {
+			enc := gob.NewEncoder(databuff)
+			err = enc.Encode(data)
+		}
 
-func (this *RpcDataPack) Pack(msgId uint32, pkg interface{}) (out []byte, err error) {
-	outbuff := bytes.NewBuffer([]byte{})
-	// 进行编码
-	databuff := bytes.NewBuffer([]byte{})
-	data := pkg.(*RpcData)
-	if data != nil {
-		enc := gob.NewEncoder(databuff)
-		err = enc.Encode(data)
-	}
+		if err != nil {
+			fmt.Println(fmt.Sprintf("gob marshaling error:  %s pkg: %v", err, data))
+		}
+		// 写Len
+		if err = binary.Write(outbuff, binary.LittleEndian, uint32(databuff.Len())); err != nil {
+			return
+		}
 
-	if err != nil {
-		fmt.Println(fmt.Sprintf("gob marshaling error:  %s pkg: %v", err, data))
-	}
-	// 写Len
-	if err = binary.Write(outbuff, binary.LittleEndian, uint32(databuff.Len())); err != nil {
-		return
-	}
+		//all pkg data
+		if err = binary.Write(outbuff, binary.LittleEndian, databuff.Bytes()); err != nil {
+			return
+		}
 
-	//all pkg data
-	if err = binary.Write(outbuff, binary.LittleEndian, databuff.Bytes()); err != nil {
-		return
-	}
-
-	out = outbuff.Bytes()
-	return
-
+		out = outbuff.Bytes()
+	*/
+	return nil, nil
 }

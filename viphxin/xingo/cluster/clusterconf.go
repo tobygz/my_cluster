@@ -10,6 +10,7 @@ type ClusterServerConf struct {
 	Name      string
 	Host      string
 	RootPort  int
+	KcpIs     bool
 	UdpPort   int
 	UdpIp     string
 	Http      []interface{} //[port, staticfile_path]
@@ -22,6 +23,7 @@ type ClusterServerConf struct {
 	Dbpwd     string
 	Startid   uint64
 	Ridamount uint32
+	PProfAddr string
 	Log       string
 }
 
@@ -43,6 +45,14 @@ func NewClusterConf(path string) (*ClusterConf, error) {
 	}
 
 	return cconf, nil
+}
+
+func (this *ClusterConf) GetPProfAddr(name string) string {
+	conf, ok := this.Servers[name]
+	if ok {
+		return conf.PProfAddr
+	}
+	return ""
 }
 
 /*

@@ -2,15 +2,6 @@ package clusterserver
 
 import (
 	"fmt"
-	"github.com/viphxin/xingo/cluster"
-	"github.com/viphxin/xingo/db"
-	"github.com/viphxin/xingo/fnet"
-	"github.com/viphxin/xingo/fserver"
-	"github.com/viphxin/xingo/iface"
-	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/udpserv"
-	"github.com/viphxin/xingo/utils"
-	"github.com/viphxin/xingo/web"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,6 +11,15 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/viphxin/xingo/cluster"
+	"github.com/viphxin/xingo/db"
+	"github.com/viphxin/xingo/fnet"
+	"github.com/viphxin/xingo/fserver"
+	"github.com/viphxin/xingo/iface"
+	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/utils"
+	"github.com/viphxin/xingo/web"
 )
 
 type ClusterServer struct {
@@ -45,6 +45,7 @@ func DoCSConnectionLost(fconn iface.Iconnection) {
 	if err == nil {
 		GlobalClusterServer.RemoveChild(nodename.(string))
 	}
+	//reconnect
 }
 
 func DoCCConnectionLost(fconn iface.Iclient) {
@@ -59,16 +60,31 @@ func DoCCConnectionLost(fconn iface.Iclient) {
 //reconnected to master
 func ReConnectMasterCB(fconn iface.Iclient) {
 	rpc := cluster.NewChild(utils.GlobalObject.Name, GlobalClusterServer.MasterObj)
-	response, err := rpc.CallChildForResult("TakeProxy", utils.GlobalObject.Name)
+	response, err := rpc.CallChildForResult("TakeProxy", utils.GlobalObject.Name, uint32(0), uint32(0), nil)
 	if err == nil {
-		roots, ok := response.Result["roots"]
-		if ok {
-			for _, root := range roots.([]interface{}) {
-				GlobalClusterServer.ConnectToRemote(root.(string))
+		roots := strings.Split(response.Result, ",")
+		for _, root := range roots {
+			if root == "" {
+				continue
 			}
+			GlobalClusterServer.ConnectToRemote(root)
 		}
 	} else {
 		panic(fmt.Sprintf("reconnected to master error: %s", err))
+	}
+}
+
+func ReConnectParentCB(fconn iface.Iclient) {
+	rname, err := fconn.GetProperty("remote")
+	if err == nil {
+		rpc, err := GlobalClusterServer.GetRemote(rname.(string))
+		if err != nil {
+			logger.Errorf("get remote %s fail, error: %s", rname.(string), err)
+			fconn.Stop(true)
+		} else {
+			rpc.CallChildNotForResult("TakeProxy", utils.GlobalObject.Name, uint64(0), uint32(0), nil)
+			logger.Infof("ReConnectParentCB this.name: %s, names: %s", utils.GlobalObject.Name, rname.(string))
+		}
 	}
 }
 
@@ -127,10 +143,29 @@ func NewClusterServer(name, path string) *ClusterServer {
 
 	if utils.GlobalObject.IsGate() {
 		utils.GlobalObject.ProtocGate = fnet.NewProtocol()
-		//      utils.GlobalObject.RpcCProtoc.InitWorker(int32(utils.GlobalObject.PoolSize))
+	}
+	if utils.GlobalObject.IsGame() {
+		utils.GlobalObject.ProtocGate = fnet.NewProtocol()
+		utils.GlobalObject.ProtocGate.GetMsgHandle()
+	}
+
+	pprofAddr := GlobalClusterServer.Cconf.GetPProfAddr(utils.GlobalObject.Name)
+	if pprofAddr != "" {
+		go func() {
+			println(http.ListenAndServe(pprofAddr, nil))
+		}()
+		logger.Info(fmt.Sprintf("server: %s pprof listen on addr: %s", utils.GlobalObject.Name, pprofAddr))
 	}
 
 	return GlobalClusterServer
+}
+
+func (this *ClusterServer) GetConfByName(name string) *cluster.ClusterServerConf {
+	conf, ok := this.Cconf.Servers[name]
+	if ok {
+		return conf
+	}
+	return nil
 }
 
 func (this *ClusterServer) GetConf() *cluster.ClusterServerConf {
@@ -204,10 +239,6 @@ func (this *ClusterServer) StartClusterServer() {
 		this.AddHttpRouter(mod)
 	}
 
-	if utils.GlobalObject.OnServerStart != nil {
-		utils.GlobalObject.OnServerStart()
-	}
-
 	//http server
 	if len(serverconf.Http) > 0 {
 		go utils.GlobalObject.WebObj.Start(fmt.Sprintf("%v", serverconf.Http[0].(float64)))
@@ -258,8 +289,8 @@ func (this *ClusterServer) StartClusterServer() {
 	//master
 	this.ConnectToMaster()
 
-	if utils.GlobalObject.IsGate() {
-		udpserv.NewUdpServ(serverconf.UdpPort)
+	if utils.GlobalObject.OnServerStart != nil {
+		utils.GlobalObject.OnServerStart()
 	}
 
 	logger.Info("xingo cluster start success.")
@@ -288,6 +319,7 @@ func (this *ClusterServer) FinnalClose() {
 		utils.GlobalObject.WebObj = nil
 	}
 	logger.Info("xingo cluster stoped.")
+	logger.Flush()
 }
 
 func (this *ClusterServer) WaitSignal() {
@@ -302,7 +334,7 @@ func (this *ClusterServer) WaitSignal() {
 
 func (this *ClusterServer) RpcCallMaster(cmd string) {
 	logger.Info(fmt.Sprintf("RpcCallMaster global_name: %s cmd: %s", utils.GlobalObject.Name, cmd))
-	err := this.MasterRpc.CallChildNotForResult(cmd, utils.GlobalObject.Name)
+	err := this.MasterRpc.CallChildNotForResult(cmd, utils.GlobalObject.Name, uint64(0), uint32(0), nil)
 	if err != nil {
 		logger.Info(fmt.Sprintf("RpcCallMaster cmd: %s error: %s", cmd, err))
 	}
@@ -315,14 +347,15 @@ func (this *ClusterServer) ConnectToMaster() {
 	//注册到master
 	this.MasterRpc = cluster.NewChild(utils.GlobalObject.Name, this.MasterObj)
 	logger.Info(fmt.Sprintf("ConnectToMaster takeproxy global_name: %s", utils.GlobalObject.Name))
-	response, err := this.MasterRpc.CallChildForResult("TakeProxy", utils.GlobalObject.Name)
+	response, err := this.MasterRpc.CallChildForResult("TakeProxy", utils.GlobalObject.Name, uint32(0), uint32(0), nil)
 	if err == nil {
-		roots, ok := response.Result["roots"]
-		if ok {
-			for _, root := range roots.([]string) {
-				logger.Info(fmt.Sprintf("ConnectToMaster ConnectToRemote root_name: %s", root))
-				this.ConnectToRemote(root)
+		roots := strings.Split(response.Result, ",")
+		for _, root := range roots {
+			if root == "" {
+				continue
 			}
+			logger.Info(fmt.Sprintf("ConnectToMaster ConnectToRemote root_name: %s", root))
+			this.ConnectToRemote(root)
 		}
 	} else {
 		panic(fmt.Sprintf("connected to master error: %s", err))
@@ -334,16 +367,18 @@ func (this *ClusterServer) ConnectToRemote(rname string) {
 	if ok {
 		//处理master掉线，重新通知的情况
 		if _, err := this.GetRemote(rname); err != nil {
-			rserver := fnet.NewTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc)
-			logger.Info("ConnectToRemote add name: %s", rname)
+			//rserver := fnet.NewTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc)
+			rserver := fnet.NewReConnTcpClient(rserverconf.Host, rserverconf.RootPort, utils.GlobalObject.RpcCProtoc, 1024, 60, ReConnectParentCB)
+			logger.Info("ConnectToRemote add name: ", rname)
 			this.RemoteNodesMgr.AddChild(rname, rserver)
 			rserver.Start()
 			rserver.SetProperty("remote", rname)
 			//takeproxy
 			child, err := this.RemoteNodesMgr.GetChild(rname)
 			if err == nil {
-				child.CallChildNotForResult("TakeProxy", utils.GlobalObject.Name)
+				child.CallChildNotForResult("TakeProxy", utils.GlobalObject.Name, uint64(0), uint32(0), nil)
 			}
+			logger.Error("ConnectToRemote this.name:" + utils.GlobalObject.Name + " names:" + this.GetNames())
 		} else {
 			logger.Info("Remote connection already exist!")
 		}
@@ -355,7 +390,7 @@ func (this *ClusterServer) ConnectToRemote(rname string) {
 
 func (this *ClusterServer) AddRouter(router interface{}) {
 	//add api ---------------start
-	if utils.GlobalObject.IsGate() {
+	if utils.GlobalObject.IsGate() || utils.GlobalObject.IsGame() {
 		utils.GlobalObject.ProtocGate.AddRpcRouter(router)
 	} else {
 		utils.GlobalObject.Protoc.AddRpcRouter(router)
@@ -400,6 +435,47 @@ func (this *ClusterServer) RemoveRemote(name string) {
 	this.RemoteNodesMgr.RemoveChild(name)
 }
 
+func (this *ClusterServer) GetRandomChild(name string) *cluster.Child {
+	this.RLock()
+	defer this.RUnlock()
+	ch := this.RemoteNodesMgr.GetRandomChild(name)
+	if ch != nil {
+		return ch
+	}
+
+	ch = this.ChildsMgr.GetRandomChild(name)
+	if ch != nil {
+		return ch
+	}
+
+	return nil
+}
+
+func (this *ClusterServer) GetChild(name string) (*cluster.Child, error) {
+	this.RLock()
+	defer this.RUnlock()
+
+	ret, err := this.RemoteNodesMgr.GetChild(name)
+	if err == nil {
+		return ret, nil
+	}
+	ret1, err1 := this.ChildsMgr.GetChild(name)
+	return ret1, err1
+}
+
+func (this *ClusterServer) GetNames() string {
+	this.RLock()
+	defer this.RUnlock()
+	ret := ""
+	for _, obj := range this.RemoteNodesMgr.GetChilds() {
+		ret = fmt.Sprintf("%s,%s", ret, obj.GetName())
+	}
+	for _, obj := range this.ChildsMgr.GetChilds() {
+		ret = fmt.Sprintf("%s,%s", ret, obj.GetName())
+	}
+	return ret
+}
+
 func (this *ClusterServer) GetRemote(name string) (*cluster.Child, error) {
 	this.RLock()
 	defer this.RUnlock()
@@ -418,11 +494,11 @@ func (this *ClusterServer) AddModuleApi(mname string, module interface{}) {
 	this.modulesApi[mname] = append(this.modulesApi[mname], module)
 }
 
-func (this *ClusterServer) AddModuleHttp(mname string, module interface{}) {
+func (this *ClusterServer) AddModuleHttp(mname, prefix string, module interface{}) {
 	if utils.GlobalObject.WebObj == nil {
 		utils.GlobalObject.WebObj = web.NewWeb()
 	}
-	utils.GlobalObject.WebObj.AddHandles(module)
+	utils.GlobalObject.WebObj.AddHandles(prefix, module)
 	//this.modulesHttp[mname] = append(this.modulesHttp[mname], module)
 }
 

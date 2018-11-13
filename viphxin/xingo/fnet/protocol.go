@@ -3,11 +3,12 @@ package fnet
 import (
 	"errors"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
-	"io"
-	"time"
 )
 
 const (
@@ -19,9 +20,33 @@ var (
 )
 
 type PkgAll struct {
-	Pdata *PkgData
-	Fconn iface.Iconnection
-	Pid   uint32
+	Pdata   *PkgData
+	Fconn   iface.Iconnection
+	UdpConn iface.IUdpConn
+	Pid     uint64
+}
+
+func (this *PkgAll) GetConnection() iface.Iconnection {
+	return this.Fconn
+}
+
+func (this *PkgAll) GetUdpConn() iface.IUdpConn {
+	return this.UdpConn
+}
+
+func (this *PkgAll) GetData() []byte {
+	return this.Pdata.Data
+}
+
+func (this *PkgAll) GetMsgId() uint32 {
+	return this.Pdata.MsgId
+}
+
+func (this *PkgAll) SetMsgObj(inter interface{}) {
+	this.Pdata.SetMsgObj(inter)
+}
+func (this *PkgAll) GetMsgObj() interface{} {
+	return this.Pdata.PbObj
 }
 
 type Protocol struct {
@@ -36,7 +61,7 @@ func NewProtocol() *Protocol {
 	}
 }
 
-func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint32, fconn iface.Iconnection) {
+func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint64, fconn iface.Iconnection) {
 	pData := &PkgData{
 		Len:   uint32(len(data)),
 		MsgId: msgId,
@@ -46,6 +71,10 @@ func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint32, fconn
 		Pdata: pData,
 		Pid:   pid,
 		Fconn: fconn,
+	}
+
+	if utils.GlobalObject.UnmarshalPt != nil {
+		utils.GlobalObject.UnmarshalPt(pData)
 	}
 
 	this.msghandle.DeliverToMsgQueue(pkgAll)
@@ -59,7 +88,7 @@ func (this *Protocol) GetDataPack() iface.Idatapack {
 }
 
 func (this *Protocol) AddRpcRouter(router interface{}) {
-	this.msghandle.AddRouter(router)
+	this.msghandle.AddRouter(router.(iface.IRouter))
 }
 
 func (this *Protocol) InitWorker(poolsize int32) {
@@ -122,9 +151,6 @@ func (this *Protocol) OnConnectionLost(fconn iface.Iconnection) {
 
 func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 	logger.Info("start receive data from socket...")
-	readCt := uint32(0)
-	lastSec := utils.GetFastSec()
-	st := uint32(0)
 	for {
 		//频率控制
 		err := this.DoFrequencyControl(fconn)
@@ -141,7 +167,7 @@ func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 			fconn.Stop()
 			return
 		}
-		pkgHead, err := this.pbdatapack.Unpack(headdata)
+		pkgHead, err := this.pbdatapack.Unpack(headdata, nil)
 		if err != nil {
 			logger.Error(err)
 			fconn.Stop()
@@ -158,15 +184,7 @@ func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 			}
 		}
 
-		readCt++
-		st = utils.GetFastSec()
-		if st-lastSec >= uint32(10) {
-			logger.Profile(fmt.Sprintf("total: %d, qps: %v", readCt, readCt/10))
-			lastSec = st
-			readCt = uint32(0)
-		}
-
-		//logger.FatalS(fmt.Sprintf("msg id :%d, data len: %d", pkg.MsgId, pkg.Len))
+		//logger.Debug(fmt.Sprintf("msg id :%d, data len: %d", pkg.MsgId, pkg.Len))
 		if utils.GlobalObject.IsUsePool {
 			this.msghandle.DeliverToMsgQueue(&PkgAll{
 				Pdata: pkg,

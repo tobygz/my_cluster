@@ -1,8 +1,6 @@
 package cluster
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
@@ -35,10 +33,11 @@ func (this *RpcServerProtocol) ManualMsgPush(msgId uint32, data []byte, pid uint
 }
 
 func (this *RpcServerProtocol) AddRpcRouter(router interface{}) {
-	this.rpcMsgHandle.AddRouter(router)
+	this.rpcMsgHandle.AddRpcRouter(router.(iface.IRpcRouter))
 }
 
 func (this *RpcServerProtocol) InitWorker(poolsize int32) {
+	logger.Debug("called StartWorkerLoop InitWorker 111")
 	this.rpcMsgHandle.StartWorkerLoop(int(poolsize))
 }
 
@@ -63,8 +62,9 @@ func (this *RpcServerProtocol) StartReadThread(fconn iface.Iconnection) {
 			fconn.Stop()
 			return
 		}
-		pkgHead, err := this.rpcDatapack.Unpack(headdata)
+		pkgHead, err := this.rpcDatapack.Unpack(headdata, nil)
 		if err != nil {
+			logger.Error(err)
 			fconn.Stop()
 			return
 		}
@@ -73,6 +73,7 @@ func (this *RpcServerProtocol) StartReadThread(fconn iface.Iconnection) {
 		if pkg.Len > 0 {
 			pkg.Data = make([]byte, pkg.Len)
 			if _, err := io.ReadFull(fconn.GetConnection(), pkg.Data); err != nil {
+				logger.Error(err)
 				fconn.Stop()
 				return
 			} else {
@@ -81,18 +82,13 @@ func (this *RpcServerProtocol) StartReadThread(fconn iface.Iconnection) {
 					Rpcdata: &RpcData{},
 				}
 
-				//err = json.Unmarshal(pkg.Data, rpcRequest.Rpcdata)
-				//replace json to gob
-				dec := gob.NewDecoder(bytes.NewReader(pkg.Data))
-				err = dec.Decode(rpcRequest.Rpcdata)
-
-				if err != nil {
-					logger.Error(err)
+				if !rpcRequest.Rpcdata.Decode(pkg.Data) {
+					logger.Infof("parse rpcdata failed.")
 					fconn.Stop()
 					return
 				}
 
-				logger.Trace(fmt.Sprintf("rpc call. data len: %d. MsgType: %d", pkg.Len, int(rpcRequest.Rpcdata.MsgType)))
+				//logger.Trace(fmt.Sprintf("rpc call server. data len: %d. MsgType: %d", pkg.Len, int(rpcRequest.Rpcdata.MsgType)))
 				if utils.GlobalObject.PoolSize > 0 && rpcRequest.Rpcdata.MsgType != RESPONSE {
 					this.rpcMsgHandle.DeliverToMsgQueue(rpcRequest)
 				} else {
@@ -122,11 +118,13 @@ func (this *RpcClientProtocol) GetMsgHandle() iface.Imsghandle {
 func (this *RpcClientProtocol) GetDataPack() iface.Idatapack {
 	return this.rpcDatapack
 }
+
 func (this *RpcClientProtocol) AddRpcRouter(router interface{}) {
-	this.rpcMsgHandle.AddRouter(router)
+	this.rpcMsgHandle.AddRpcRouter(router.(iface.IRpcRouter))
 }
 
 func (this *RpcClientProtocol) InitWorker(poolsize int32) {
+	logger.Debug("called StartWorkerLoop InitWorker 000")
 	this.rpcMsgHandle.StartWorkerLoop(int(poolsize))
 }
 
@@ -149,7 +147,7 @@ func (this *RpcClientProtocol) StartReadThread(fconn iface.Iclient) {
 			fconn.Stop(false)
 			return
 		}
-		pkgHead, err := this.rpcDatapack.Unpack(headdata)
+		pkgHead, err := this.rpcDatapack.Unpack(headdata, nil)
 		if err != nil {
 			fconn.Stop(false)
 			return
@@ -166,17 +164,10 @@ func (this *RpcClientProtocol) StartReadThread(fconn iface.Iclient) {
 					Fconn:   fconn,
 					Rpcdata: &RpcData{},
 				}
-				//err = json.Unmarshal(pkg.Data, rpcRequest.Rpcdata)
-				//replace json to gob
-				dec := gob.NewDecoder(bytes.NewReader(pkg.Data))
-				err = dec.Decode(rpcRequest.Rpcdata)
-				if err != nil {
-					logger.Error("json.Unmarshal error!!!")
-					fconn.Stop(false)
-					return
-				}
 
-				logger.Debug(fmt.Sprintf("rpc call. data len: %d. MsgType: %d", pkg.Len, rpcRequest.Rpcdata.MsgType))
+				rpcRequest.Rpcdata.Decode(pkg.Data)
+
+				//logger.Trace(fmt.Sprintf("rpc call client. data len: %d. MsgType: %d", pkg.Len, rpcRequest.Rpcdata.MsgType))
 				if utils.GlobalObject.PoolSize > 0 && rpcRequest.Rpcdata.MsgType != RESPONSE {
 					this.rpcMsgHandle.DeliverToMsgQueue(rpcRequest)
 				} else {
