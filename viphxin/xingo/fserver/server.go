@@ -12,6 +12,7 @@ import (
 	"github.com/viphxin/xingo/timer"
 	"github.com/viphxin/xingo/udpserv"
 	"github.com/viphxin/xingo/utils"
+
 	//"syscall"
 	"time"
 )
@@ -100,7 +101,7 @@ func (this *Server) Start() {
 				logger.Error("fatal error, connection exceed")
 				conn.Close()
 			} else {
-				this.handleConnection(conn)
+				go this.handleConnection(conn)
 			}
 		}
 	}()

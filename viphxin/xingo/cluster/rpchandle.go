@@ -84,7 +84,6 @@ func (this *RpcMsgHandle) DeliverToMsgQueue(pkg interface{}) {
 	request := pkg.(*RpcRequest)
 	//add to worker pool
 	index := rand.Int31n(utils.GlobalObject.PoolSize)
-	index = 0
 	taskQueue := this.TaskQueue[index]
 	if utils.GlobalObject.EnableFlowLog {
 		logger.Debug(fmt.Sprintf("add to rpc pool : %d ", index))
@@ -114,7 +113,6 @@ func (this *RpcMsgHandle) AddRpcRouter(router iface.IRpcRouter) {
 }
 
 func (this *RpcMsgHandle) StartWorkerLoop(poolSize int) {
-	poolSize = 1
 	for i := 0; i < poolSize; i += 1 {
 		nowSize := utils.GlobalObject.MaxWorkerLen
 		if utils.GlobalObject.IsGate() {
