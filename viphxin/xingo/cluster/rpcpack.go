@@ -1,11 +1,10 @@
 package cluster
 
 import (
-	"bytes"
 	"encoding/binary"
-	//"encoding/gob"
-	"errors"
+
 	"fmt"
+
 	"github.com/viphxin/xingo/fnet"
 	"github.com/viphxin/xingo/iface"
 )
@@ -76,26 +75,28 @@ func (this *RpcDataPack) GetHeadLen() int32 {
 	return 4
 }
 
-func (this *RpcDataPack) Unpack(headdata []byte) (interface{}, error) {
-	headbuf := bytes.NewReader(headdata)
+func (this *RpcDataPack) Unpack(head []byte, pkgItf interface{}) (interface{}, error) {
+	pkg, ok := pkgItf.(*RpcPackege)
+	if !ok {
+		pkg = &RpcPackege{}
+	}
 
-	rp := &RpcPackege{}
+	if len(head) != int(this.GetHeadLen()) {
+		return nil, fmt.Errorf("invalid head length")
+	}
 
 	// 读取Len
-	if err := binary.Read(headbuf, binary.LittleEndian, &rp.Len); err != nil {
-		return nil, err
-	}
+	pkg.Len = int32(binary.LittleEndian.Uint32(head))
 
 	// 封包太大
-	if rp.Len > fnet.MaxPacketSize {
-		info := fmt.Sprintf("rpc package exceed: %d, rpc size: %d", fnet.MaxPacketSize, rp.Len)
-		return nil, errors.New(info)
+	if pkg.Len > fnet.MaxPacketSize {
+		return nil, fmt.Errorf("rpc package exceed: %d, rpc size: %d", fnet.MaxPacketSize, pkg.Len)
 	}
 
-	return rp, nil
+	return pkg, nil
 }
 
-func (this *RpcDataPack) Pack(msgId uint32, pkg interface{}) (out []byte, err error) {
+func (this *RpcDataPack) Pack(msgId uint32, pkg interface{}, b []byte) (o []byte, err error) {
 	/*
 		gob.Register(RpcData{})
 		gob.Register([]interface{}{})
@@ -124,5 +125,4 @@ func (this *RpcDataPack) Pack(msgId uint32, pkg interface{}) (out []byte, err er
 		out = outbuff.Bytes()
 	*/
 	return nil, nil
-
 }

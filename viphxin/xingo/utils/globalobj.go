@@ -2,13 +2,14 @@ package utils
 
 import (
 	"encoding/json"
-	"github.com/viphxin/xingo/iface"
-	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/timer"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/viphxin/xingo/iface"
+	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/timer"
 )
 
 type GlobalObj struct {

@@ -2,15 +2,17 @@ package fserver
 
 import (
 	"fmt"
+	"net"
+	"os"
+	"os/signal"
+
 	"github.com/viphxin/xingo/fnet"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/timer"
 	"github.com/viphxin/xingo/udpserv"
 	"github.com/viphxin/xingo/utils"
-	"net"
-	"os"
-	"os/signal"
+
 	//"syscall"
 	"time"
 )

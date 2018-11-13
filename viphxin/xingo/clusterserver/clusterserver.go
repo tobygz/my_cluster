@@ -2,14 +2,6 @@ package clusterserver
 
 import (
 	"fmt"
-	"github.com/viphxin/xingo/cluster"
-	"github.com/viphxin/xingo/db"
-	"github.com/viphxin/xingo/fnet"
-	"github.com/viphxin/xingo/fserver"
-	"github.com/viphxin/xingo/iface"
-	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/utils"
-	"github.com/viphxin/xingo/web"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,6 +11,15 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/viphxin/xingo/cluster"
+	"github.com/viphxin/xingo/db"
+	"github.com/viphxin/xingo/fnet"
+	"github.com/viphxin/xingo/fserver"
+	"github.com/viphxin/xingo/iface"
+	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/utils"
+	"github.com/viphxin/xingo/web"
 )
 
 type ClusterServer struct {

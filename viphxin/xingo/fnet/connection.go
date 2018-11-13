@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/viphxin/xingo/iface"
-	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/utils"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/viphxin/xingo/iface"
+	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/utils"
 )
 
 type Connection struct {
@@ -141,7 +142,6 @@ func (this *Connection) sendThread() {
 				bflush = false
 			}
 		}
-
 	}
 }
 

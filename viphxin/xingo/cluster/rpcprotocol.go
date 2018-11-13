@@ -62,7 +62,7 @@ func (this *RpcServerProtocol) StartReadThread(fconn iface.Iconnection) {
 			fconn.Stop()
 			return
 		}
-		pkgHead, err := this.rpcDatapack.Unpack(headdata)
+		pkgHead, err := this.rpcDatapack.Unpack(headdata, nil)
 		if err != nil {
 			logger.Error(err)
 			fconn.Stop()
@@ -147,7 +147,7 @@ func (this *RpcClientProtocol) StartReadThread(fconn iface.Iclient) {
 			fconn.Stop(false)
 			return
 		}
-		pkgHead, err := this.rpcDatapack.Unpack(headdata)
+		pkgHead, err := this.rpcDatapack.Unpack(headdata, nil)
 		if err != nil {
 			fconn.Stop(false)
 			return

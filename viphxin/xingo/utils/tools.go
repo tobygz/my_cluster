@@ -150,11 +150,11 @@ func GetRandVal(limit int) int {
 	return g_rand.Intn(limit)
 }
 
-func GetRandUVal() uint32 {
+func GetRandUVal(limit uint32) uint32 {
 	if g_rand == nil {
 		initRandSource()
 	}
-	return g_rand.Uint32()
+	return uint32(g_rand.Int31n(int32(limit)))
 }
 
 func Str2bytes(s string) []byte {

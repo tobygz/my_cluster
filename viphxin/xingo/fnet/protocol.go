@@ -3,11 +3,12 @@ package fnet
 import (
 	"errors"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
-	"io"
-	"time"
 )
 
 const (
@@ -75,6 +76,7 @@ func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint64, fconn
 	if utils.GlobalObject.UnmarshalPt != nil {
 		utils.GlobalObject.UnmarshalPt(pData)
 	}
+
 	this.msghandle.DeliverToMsgQueue(pkgAll)
 }
 
@@ -165,7 +167,7 @@ func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 			fconn.Stop()
 			return
 		}
-		pkgHead, err := this.pbdatapack.Unpack(headdata)
+		pkgHead, err := this.pbdatapack.Unpack(headdata, nil)
 		if err != nil {
 			logger.Error(err)
 			fconn.Stop()

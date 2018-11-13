@@ -2,6 +2,7 @@ package web
 
 import (
 	json "github.com/json-iterator/go"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -28,7 +29,12 @@ func parseReqBody(reqBody string) *CgiInput {
 		if len(ary2) != 2 {
 			continue
 		}
-		(*ret)[strings.ToLower(ary2[0])] = ary2[1]
+		k := strings.ToLower(ary2[0])
+		if u, err := url.QueryUnescape(ary2[1]); err != nil {
+			(*ret)[k] = ary2[1]
+		} else {
+			(*ret)[k] = u
+		}
 	}
 
 	return ret

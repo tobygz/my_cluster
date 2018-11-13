@@ -28,3 +28,7 @@ func GetFastSec() uint32 {
 	nowVal := atomic.LoadUint32(&g_tick)
 	return nowVal
 }
+
+func getMs() int64 {
+	return time.Now().UnixNano() / 1000000
+}
