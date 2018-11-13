@@ -26,15 +26,16 @@ import "C"
 */
 import (
 	"fmt"
-	"github.com/viphxin/xingo/iface"
-	"github.com/viphxin/xingo/logger"
-	"github.com/viphxin/xingo/utils"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	//"syscall"
 	"time"
+
+	"github.com/viphxin/xingo/iface"
+	"github.com/viphxin/xingo/logger"
+	"github.com/viphxin/xingo/utils"
 )
 
 var GAME_WORK_GOR_NUM int = 32

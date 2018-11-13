@@ -1,12 +1,11 @@
 package fnet
 
 import (
-	"bytes"
 	"encoding/binary"
-	//"fmt"
+	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/viphxin/xingo/iface"
-	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
 )
 
@@ -36,65 +35,64 @@ func (this *PBDataPack) GetHeadLen() int32 {
 	return 8
 }
 
-func (this *PBDataPack) Unpack(headdata []byte) (interface{}, error) {
-	headbuf := bytes.NewReader(headdata)
+func (this *PBDataPack) Unpack(head []byte, pkgItf interface{}) (interface{}, error) {
+	pkg, ok := pkgItf.(*PkgData)
+	if !ok {
+		pkg = &PkgData{}
+	}
 
-	head := &PkgData{}
+	if len(head) != int(this.GetHeadLen()) {
+		return nil, fmt.Errorf("invalid head length")
+	}
 
 	// 读取Len
-	if err := binary.Read(headbuf, binary.LittleEndian, &head.Len); err != nil {
-		return nil, err
-	}
-
+	pkg.Len = binary.LittleEndian.Uint32(head[0:])
 	// 读取MsgId
-	if err := binary.Read(headbuf, binary.LittleEndian, &head.MsgId); err != nil {
-		return nil, err
-	}
+	pkg.MsgId = binary.LittleEndian.Uint32(head[4:])
 
 	if this.bNet {
 		if this.msgHandle == nil {
 			this.msgHandle = utils.GlobalObject.Protoc.GetMsgHandle()
 		}
-		this.msgHandle.UpdateNetIn(int(this.GetHeadLen()) + int(head.Len))
+		this.msgHandle.UpdateNetIn(int(this.GetHeadLen()) + int(pkg.Len))
 	}
 
 	// 封包太大
-	if (utils.GlobalObject.MaxPacketSize > 0 && head.Len > utils.GlobalObject.MaxPacketSize) ||
-		(utils.GlobalObject.MaxPacketSize == 0 && head.Len > MaxPacketSize) {
-		logger.Errorf("TEST: bigger than conf(%d) or def(%d), msgId: %d, len: %d data: %v", utils.GlobalObject.MaxPacketSize, MaxPacketSize, head.MsgId, head.Len, headdata)
+	if utils.GlobalObject.MaxPacketSize > 0 {
+		if pkg.Len > utils.GlobalObject.MaxPacketSize {
+			return nil, packageTooBig
+		}
+	} else if pkg.Len > MaxPacketSize {
 		return nil, packageTooBig
 	}
 
-	return head, nil
+	return pkg, nil
 }
 
-func (this *PBDataPack) Pack(msgId uint32, data interface{}) (out []byte, err error) {
-	outbuff := bytes.NewBuffer([]byte{})
+func (this *PBDataPack) Pack(msgId uint32, pkg interface{}, b []byte) (o []byte, err error) {
 	// 进行编码
-	dataBytes := []byte{}
-	if data != nil {
-		dataBytes, err = proto.Marshal(data.(proto.Message))
+	var bt []byte
+	if pkg != nil {
+		bt, err = proto.Marshal(pkg.(proto.Message))
+		if err != nil {
+			panic(err)
+			//logger.Errorf("marshaling error:  %s", err)
+		}
 	}
 
-	if err != nil {
-		panic(err)
-		//logger.Error(fmt.Sprintf("marshaling error:  %s", err))
+	if cap(b) >= len(bt)+8 {
+		o = b[0 : len(bt)+8]
+	} else {
+		o = make([]byte, len(bt)+8)
 	}
+
 	// 写Len
-	if err = binary.Write(outbuff, binary.LittleEndian, uint32(len(dataBytes))); err != nil {
-		return
-	}
+	binary.LittleEndian.PutUint32(o[0:], uint32(len(bt)))
 	// 写MsgId
-	if err = binary.Write(outbuff, binary.LittleEndian, msgId); err != nil {
-		return
-	}
+	binary.LittleEndian.PutUint32(o[4:], msgId)
 
 	//all pkg data
-	if err = binary.Write(outbuff, binary.LittleEndian, dataBytes); err != nil {
-		return
-	}
+	copy(o[8:], bt)
 
-	out = outbuff.Bytes()
 	return
-
 }

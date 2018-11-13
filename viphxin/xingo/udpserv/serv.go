@@ -2,14 +2,17 @@ package udpserv
 
 import (
 	//"fmt"
-	"encoding/binary"
+
 	"fmt"
+	"io"
+	"net"
+
 	"github.com/viphxin/xingo/fnet"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
 	"github.com/xtaci/kcp-go"
-	"net"
+
 	//"strings"
 	"sync"
 	"time"
@@ -25,38 +28,11 @@ var (
 
 func init() {
 	pkgPool.New = func() interface{} {
-		return &fnet.PkgAll{}
+		return &fnet.PkgAll{Pdata: &fnet.PkgData{}}
 	}
 	bufPool.New = func() interface{} {
 		return make([]byte, pool_size)
 	}
-}
-
-type DataReq struct {
-	addr    *net.UDPAddr
-	kcpconn *kcp.UDPSession
-	data    []byte
-	pid     uint32
-}
-
-func (this *DataReq) GetAddr() *net.UDPAddr {
-	return this.addr
-}
-
-func (this *DataReq) GetKcp() *kcp.UDPSession {
-	return this.kcpconn
-}
-
-func (this *DataReq) GetConnection() iface.Iconnection {
-	return nil
-}
-
-func (this *DataReq) GetData() []byte {
-	return this.data
-}
-
-func (this *DataReq) GetMsgId() uint32 {
-	return 0
 }
 
 type UdpServ struct {
@@ -67,7 +43,7 @@ type UdpServ struct {
 	exitSendChan chan int
 	listener     *net.UDPConn
 	kcplistener  *kcp.Listener
-	pbdataPack   *fnet.PBDataPack
+	datapack     iface.Idatapack
 	Running      bool
 
 	RecvChan  map[uint32]*chan *fnet.PkgAll
@@ -88,7 +64,7 @@ func NewUdpServ(port int, kcpEnable bool) {
 		exitChan:     make(chan int, 1),
 		exitSendChan: make(chan int, 1),
 		CloseChan:    make(map[uint32]chan bool),
-		pbdataPack:   fnet.NewPBDataPack(),
+		datapack:     NewKCPDataPack(),
 		RecvChan:     make(map[uint32]*chan *fnet.PkgAll),
 		Running:      true,
 	}
@@ -260,9 +236,7 @@ func (this *UdpServ) StartKcpServ(port int) {
 				//rid := uint64(0)
 				pid := uint32(0)
 				roomid := uint32(0)
-				spid := uint64(0)
-				pidary := make([]byte, 4)
-				roomidary := make([]byte, 4)
+				head := make([]byte, this.datapack.GetHeadLen())
 				bfirst := true
 
 				chClose := make(chan bool, 12)
@@ -282,46 +256,35 @@ func (this *UdpServ) StartKcpServ(port int) {
 						//bOver = true
 						//break
 					default:
-						head := make([]byte, (*this.pbdataPack).GetHeadLen())
 						if bfirst {
 							conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 							bfirst = false
 						} else {
 							conn.SetReadDeadline(time.Now().Add(1 * 60 * time.Second))
 						}
-						_, err := conn.Read(head)
+						_, err := io.ReadFull(conn, head)
 						if err != nil {
 							logger.Infof("kcpserv read head exit: %d", idx)
 							conn.Close()
 							return
 						}
-						pkgHead, err := (*this.pbdataPack).Unpack(head)
+						pkgItf, err := this.datapack.Unpack(head, pkgPool.Get())
 						if err != nil {
 							logger.Infof("kcpserv read unpack exit: %d", idx)
 							conn.Close()
 							return
 						}
-						_, err = conn.Read(pidary)
-						if err != nil {
-							logger.Infof("kcpserv read pidary exit : %d", idx)
-							conn.Close()
-							return
-						}
-						pid = binary.LittleEndian.Uint32(pidary)
+						pkgAll := pkgItf.(*fnet.PkgAll)
+
+						pid = uint32(pkgAll.Pid & 0xffffffff)
 						if !isAdd {
-							this.AddCloseCh(uint32(pid), chClose)
+							this.AddCloseCh(pid, chClose)
 							isAdd = true
 						}
 						//for room id
-						_, err = conn.Read(roomidary)
-						if err != nil {
-							logger.Infof("kcpserv read roomidary exit : %d", idx)
-							conn.Close()
-							return
-						}
-						roomid = binary.LittleEndian.Uint32(roomidary)
+						roomid = uint32(pkgAll.Pid >> 32)
 
-						pkg := pkgHead.(*fnet.PkgData)
+						pkg := pkgAll.Pdata
 						if pkg.Len > 0 {
 							//pkg.Data = pkgAll.Data
 							//pkg.Data = make([]byte, pkg.Len)
@@ -346,10 +309,6 @@ func (this *UdpServ) StartKcpServ(port int) {
 									pid, conn.RemoteAddr(), pkg.MsgId, pkg.Len, obj, obj.Name())
 						*/
 
-						spid = uint64((uint64(roomid)&0xffffffff)<<32) + uint64(uint64(pid)&0xffffffff)
-						pkgAll := pkgPool.Get().(*fnet.PkgAll)
-						pkgAll.Pdata = pkg
-						pkgAll.Pid = spid
 						pkgAll.UdpConn = conn
 
 						if chp == nil {

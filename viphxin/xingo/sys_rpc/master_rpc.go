@@ -2,14 +2,15 @@ package sys_rpc
 
 import (
 	"fmt"
+	"os"
+	"strings"
+	"sync"
+
 	"github.com/viphxin/xingo/cluster"
 	"github.com/viphxin/xingo/clusterserver"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
-	"os"
-	"strings"
-	"sync"
 )
 
 type MasterRpc struct {
