@@ -4,10 +4,6 @@ import (
 	"net"
 )
 
-type IChild interface {
-	CallChildNotForResult(target string, args ...interface{}) error
-}
-
 type Iconnection interface {
 	Start()
 	Stop()
@@ -15,8 +11,6 @@ type Iconnection interface {
 	GetSessionId() uint32
 	Send([]byte) error
 	SendBuff([]byte) error
-	GetLastTick() uint32
-	UpdateLastTick()
 	RemoteAddr() net.Addr
 	LostConnection()
 	GetProperty(string) (interface{}, error)
