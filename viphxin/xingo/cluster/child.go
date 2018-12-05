@@ -13,12 +13,16 @@ import (
 type Child struct {
 	name string
 	rpc  *XingoRpc
+
+	callSwitch bool
 }
 
 func NewChild(name string, conn iface.IWriter) *Child {
 	return &Child{
 		name: name,
 		rpc:  NewXingoRpc(conn),
+
+		callSwitch: true,
 	}
 }
 
@@ -62,9 +66,8 @@ func (this *ChildMgr) AddChild(name string, conn iface.IWriter) {
 
 func (this *ChildMgr) RemoveChild(name string) {
 	this.Lock()
-	defer this.Unlock()
-
 	delete(this.childs, name)
+	this.Unlock()
 	logger.Debug(fmt.Sprintf("child %s lostconnection.", name))
 }
 
@@ -80,27 +83,37 @@ func (this *ChildMgr) GetChild(name string) (*Child, error) {
 	}
 }
 
+func (this *ChildMgr) OperCallSwitch(name string, status bool) {
+	this.Lock()
+	if c, ok := this.childs[name]; ok {
+		c.callSwitch = status
+		logger.Infof("child %s call_switch status %b", name, status)
+	}
+	this.Unlock()
+	return
+}
+
 func (this *ChildMgr) GetChildsByPrefix(namePrefix string) []*Child {
 	this.RLock()
-	defer this.RUnlock()
-
 	childs := make([]*Child, 0)
 	for k, v := range this.childs {
-		if strings.HasPrefix(k, namePrefix) {
+		if strings.HasPrefix(k, namePrefix) && v.callSwitch {
 			childs = append(childs, v)
 		}
 	}
+	this.RUnlock()
 	return childs
 }
 
 func (this *ChildMgr) GetChilds() []*Child {
 	this.RLock()
-	defer this.RUnlock()
-
 	childs := make([]*Child, 0)
 	for _, v := range this.childs {
-		childs = append(childs, v)
+		if v.callSwitch {
+			childs = append(childs, v)
+		}
 	}
+	this.RUnlock()
 	return childs
 }
 
@@ -118,4 +131,14 @@ func (this *ChildMgr) GetRandomChild(namesuffix string) *Child {
 		return childs[pos]
 	}
 	return nil
+}
+
+func (this *ChildMgr) String() string {
+	var s string
+	this.RLock()
+	for n, c := range this.childs {
+		s = s + fmt.Sprintf("%s: %t;", n, c.callSwitch)
+	}
+	this.RUnlock()
+	return s
 }
