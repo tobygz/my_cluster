@@ -423,16 +423,14 @@ func (this *ClusterServer) AddChild(name string, writer iface.IWriter) {
 */
 func (this *ClusterServer) RemoveChild(name string) {
 	this.Lock()
-	defer this.Unlock()
-
 	this.ChildsMgr.RemoveChild(name)
+	this.Unlock()
 }
 
 func (this *ClusterServer) RemoveRemote(name string) {
 	this.Lock()
-	defer this.Unlock()
-
 	this.RemoteNodesMgr.RemoveChild(name)
+	this.Unlock()
 }
 
 func (this *ClusterServer) GetRandomChild(name string) *cluster.Child {
@@ -451,6 +449,13 @@ func (this *ClusterServer) GetRandomChild(name string) *cluster.Child {
 	return nil
 }
 
+func (this *ClusterServer) OperCallSwitch(name string, status bool) {
+	this.Lock()
+	this.RemoteNodesMgr.OperCallSwitch(name, status)
+	this.ChildsMgr.OperCallSwitch(name, status)
+	this.Unlock()
+}
+
 func (this *ClusterServer) GetChild(name string) (*cluster.Child, error) {
 	this.RLock()
 	defer this.RUnlock()
@@ -459,20 +464,19 @@ func (this *ClusterServer) GetChild(name string) (*cluster.Child, error) {
 	if err == nil {
 		return ret, nil
 	}
-	ret1, err1 := this.ChildsMgr.GetChild(name)
-	return ret1, err1
+	return this.ChildsMgr.GetChild(name)
 }
 
 func (this *ClusterServer) GetNames() string {
+	var ret string
 	this.RLock()
-	defer this.RUnlock()
-	ret := ""
 	for _, obj := range this.RemoteNodesMgr.GetChilds() {
-		ret = fmt.Sprintf("%s,%s", ret, obj.GetName())
+		ret = ret + "," + obj.GetName()
 	}
 	for _, obj := range this.ChildsMgr.GetChilds() {
-		ret = fmt.Sprintf("%s,%s", ret, obj.GetName())
+		ret = ret + "," + obj.GetName()
 	}
+	this.RUnlock()
 	return ret
 }
 

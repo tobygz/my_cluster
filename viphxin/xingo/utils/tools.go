@@ -157,6 +157,13 @@ func GetRandUVal(limit uint32) uint32 {
 	return uint32(g_rand.Int31n(int32(limit)))
 }
 
+func GetRandFVal() float64 {
+	if g_rand == nil {
+		initRandSource()
+	}
+	return g_rand.Float64()
+}
+
 func Str2bytes(s string) []byte {
 	x := (*[2]uintptr)(unsafe.Pointer(&s))
 	h := [3]uintptr{x[0], x[1], x[1]}

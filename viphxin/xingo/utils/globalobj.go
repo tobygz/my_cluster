@@ -34,6 +34,7 @@ type GlobalObj struct {
 	//log
 	LogPath          string
 	LogName          string
+	BatDtlPath       string
 	MaxLogNum        int32
 	MaxFileSize      int64
 	LogFileUnit      logger.UNIT
@@ -109,6 +110,7 @@ func init() {
 		MaxConn:                12000,
 		LogPath:                "./log",
 		LogName:                "server.log",
+		BatDtlPath:             "/data/batdtl",
 		MaxLogNum:              10,
 		MaxFileSize:            1024 * 1024 * 10,
 		LogFileUnit:            logger.KB,
