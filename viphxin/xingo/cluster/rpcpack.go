@@ -75,7 +75,7 @@ func (this *RpcDataPack) GetHeadLen() int32 {
 	return 4
 }
 
-func (this *RpcDataPack) Unpack(head []byte, pkgItf interface{}) (interface{}, error) {
+func (this *RpcDataPack) Unpack(data []byte, pkgItf interface{}) (interface{}, error) {
 	pkg, ok := pkgItf.(*RpcPackege)
 	if !ok {
 		pkg = &RpcPackege{}
@@ -86,7 +86,7 @@ func (this *RpcDataPack) Unpack(head []byte, pkgItf interface{}) (interface{}, e
 	}
 
 	// 读取Len
-	pkg.Len = int32(binary.LittleEndian.Uint32(head))
+	pkg.Len = int32(binary.LittleEndian.Uint32(data))
 
 	// 封包太大
 	if pkg.Len > fnet.MaxPacketSize {
@@ -98,31 +98,31 @@ func (this *RpcDataPack) Unpack(head []byte, pkgItf interface{}) (interface{}, e
 
 func (this *RpcDataPack) Pack(msgId uint32, pkg interface{}, b []byte) (o []byte, err error) {
 	/*
-		gob.Register(RpcData{})
-		gob.Register([]interface{}{})
-		outbuff := bytes.NewBuffer([]byte{})
-		// 进行编码
-		databuff := bytes.NewBuffer([]byte{})
-		data := pkg.(*RpcData)
-		if data != nil {
-			enc := gob.NewEncoder(databuff)
-			err = enc.Encode(data)
-		}
+	   gob.Register(RpcData{})
+	   gob.Register([]interface{}{})
+	   outbuff := bytes.NewBuffer([]byte{})
+	   // 进行编码
+	   databuff := bytes.NewBuffer([]byte{})
+	   data := pkg.(*RpcData)
+	   if data != nil {
+	       enc := gob.NewEncoder(databuff)
+	       err = enc.Encode(data)
+	   }
 
-		if err != nil {
-			fmt.Println(fmt.Sprintf("gob marshaling error:  %s pkg: %v", err, data))
-		}
-		// 写Len
-		if err = binary.Write(outbuff, binary.LittleEndian, uint32(databuff.Len())); err != nil {
-			return
-		}
+	   if err != nil {
+	       fmt.Println(fmt.Sprintf("gob marshaling error:  %s pkg: %v", err, data))
+	   }
+	   // 写Len
+	   if err = binary.Write(outbuff, binary.LittleEndian, uint32(databuff.Len())); err != nil {
+	       return
+	   }
 
-		//all pkg data
-		if err = binary.Write(outbuff, binary.LittleEndian, databuff.Bytes()); err != nil {
-			return
-		}
+	   //all pkg data
+	   if err = binary.Write(outbuff, binary.LittleEndian, databuff.Bytes()); err != nil {
+	       return
+	   }
 
-		out = outbuff.Bytes()
+	   out = outbuff.Bytes()
 	*/
 	return nil, nil
 }

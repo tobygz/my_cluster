@@ -2,8 +2,6 @@ package fnet
 
 import (
 	"encoding/binary"
-	"fmt"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/utils"
@@ -44,9 +42,9 @@ func (this *PBDataPack) Unpack(head []byte, pkgItf interface{}) (interface{}, er
 	if len(head) != int(this.GetHeadLen()) {
 		return nil, fmt.Errorf("invalid head length")
 	}
-
 	// 读取Len
 	pkg.Len = binary.LittleEndian.Uint32(head[0:])
+
 	// 读取MsgId
 	pkg.MsgId = binary.LittleEndian.Uint32(head[4:])
 
@@ -69,11 +67,11 @@ func (this *PBDataPack) Unpack(head []byte, pkgItf interface{}) (interface{}, er
 	return pkg, nil
 }
 
-func (this *PBDataPack) Pack(msgId uint32, pkg interface{}, b []byte) (o []byte, err error) {
+func (this *PBDataPack) Pack(msgId uint32, msg interface{}, b []byte) (o []byte, err error) {
 	// 进行编码
 	var bt []byte
-	if pkg != nil {
-		bt, err = proto.Marshal(pkg.(proto.Message))
+	if msg != nil {
+		bt, err = proto.Marshal(msg.(proto.Message))
 		if err != nil {
 			panic(err)
 			//logger.Errorf("marshaling error:  %s", err)
@@ -91,7 +89,7 @@ func (this *PBDataPack) Pack(msgId uint32, pkg interface{}, b []byte) (o []byte,
 	// 写MsgId
 	binary.LittleEndian.PutUint32(o[4:], msgId)
 
-	//all pkg data
+	//all pkg msg
 	copy(o[8:], bt)
 
 	return
