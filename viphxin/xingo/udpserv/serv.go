@@ -193,6 +193,7 @@ func (this *UdpServ) handleConn(c net.Conn, kcpIdx int) {
 			}
 		} else if pkg.Len == 0 && pkg.MsgId == 2000 {
 			logger.Infof("drop msg2000 with len 0")
+			conn.SetReadDeadline(time.Now().Add(time.Minute)) //keepalive
 			continue
 		}
 		utils.GlobalObject.UnmarshalPt(pkg)
