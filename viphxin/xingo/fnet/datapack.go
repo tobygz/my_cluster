@@ -2,6 +2,8 @@ package fnet
 
 import (
 	"encoding/binary"
+	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/utils"

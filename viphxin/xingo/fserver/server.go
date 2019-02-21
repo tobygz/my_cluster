@@ -37,10 +37,10 @@ type Server struct {
 
 func NewServer() iface.Iserver {
 	s := &Server{
-		Port:          utils.GlobalObject.TcpPort,
-		MaxConn:       utils.GlobalObject.MaxConn,
-		connectionMgr: fnet.NewConnectionMgr(),
+		Port:    utils.GlobalObject.TcpPort,
+		MaxConn: utils.GlobalObject.MaxConn,
 	}
+	s.connectionMgr = fnet.NewConnectionMgr(utils.GlobalObject.IsNet())
 	s.initSessIdPool()
 	utils.GlobalObject.TcpServer = s
 
@@ -68,8 +68,17 @@ func (this *Server) handleConnection(conn *net.TCPConn) {
 	conn.SetKeepAlive(true)
 	conn.SetWriteBuffer(1024 * 1024)
 	conn.SetReadBuffer(1024 * 1024)
-	fconn := fnet.NewConnection(conn, genNum, utils.GlobalObject.Protoc)
-	fconn.Start()
+	var key []byte = nil
+	if utils.GlobalObject.IsNet() && utils.GlobalObject.Encrypt {
+		key = this.connectionMgr.FetchEncKey()
+	}
+	fconn := fnet.NewConnection(conn, genNum, utils.GlobalObject.Protoc, key)
+	if fconn.SyncKey() {
+		fconn.Start()
+	} else {
+		logger.Errorf("conn encrypt check err id: %v", genNum)
+		conn.Close()
+	}
 }
 
 func (this *Server) Start() {

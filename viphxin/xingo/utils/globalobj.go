@@ -62,6 +62,7 @@ type GlobalObj struct {
 	WebObj           iface.Iweb
 	IsClose          bool
 	PProfAddr        string
+	Encrypt          bool
 }
 
 func (this *GlobalObj) IncMaxRid() uint64 {
@@ -126,6 +127,7 @@ func init() {
 		FrameSpeed:             30,
 		EnableFlowLog:          false,
 		IsClose:                false,
+		Encrypt:                false,
 		TimeChan:               make(chan *timer.Timer),
 		OnConnectioned:         func(fconn iface.Iconnection) {},
 		OnClosed:               func(fconn iface.Iconnection) {},

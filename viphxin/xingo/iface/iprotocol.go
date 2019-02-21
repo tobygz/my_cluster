@@ -14,6 +14,7 @@ type IServerProtocol interface {
 	OnConnectionMade(fconn Iconnection)
 	OnConnectionLost(fconn Iconnection)
 	StartReadThread(fconn Iconnection)
+	InitRc4([]byte)
 	InitWorker(int32)
 	AddRpcRouter(interface{})
 	GetMsgHandle() Imsghandle

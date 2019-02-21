@@ -6,6 +6,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/viphxin/xingo/encry"
 	"github.com/viphxin/xingo/iface"
 	"github.com/viphxin/xingo/logger"
 	"github.com/viphxin/xingo/utils"
@@ -52,13 +53,24 @@ func (this *PkgAll) GetMsgObj() interface{} {
 type Protocol struct {
 	msghandle  *MsgHandle
 	pbdatapack *PBDataPack
+	rc4        *encry.Cipher
+	benc       bool
 }
 
 func NewProtocol() *Protocol {
 	return &Protocol{
 		msghandle:  NewMsgHandle(),
 		pbdatapack: NewPBDataPack(),
+		benc:       false,
 	}
+}
+
+func (this *Protocol) InitRc4(key []byte) {
+	if key == nil || len(key) == 0 {
+		return
+	}
+	this.benc = true
+	this.rc4, _ = encry.NewCipher(key)
 }
 
 func (this *Protocol) ManualMsgPush(msgId uint32, data []byte, pid uint64, fconn iface.Iconnection) {
@@ -183,8 +195,14 @@ func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 				return
 			}
 		}
+		logger.Infof("pkg len:", pkg.Len, " enc data: ", pkg.Data, " benc:", this.benc)
+		if this.benc {
+			dt := make([]byte, len(pkg.Data))
+			this.rc4.XorKeyStreamGeneric(dt[0:], pkg.Data[0:])
+			copy(pkg.Data[0:], dt)
+		}
 
-		//logger.Debug(fmt.Sprintf("msg id :%d, data len: %d", pkg.MsgId, pkg.Len))
+		logger.Debug(fmt.Sprintf("msg id :%d, data len: %d data: %v", pkg.MsgId, pkg.Len, pkg.Data))
 		if utils.GlobalObject.IsUsePool {
 			this.msghandle.DeliverToMsgQueue(&PkgAll{
 				Pdata: pkg,

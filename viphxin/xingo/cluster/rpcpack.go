@@ -81,10 +81,6 @@ func (this *RpcDataPack) Unpack(data []byte, pkgItf interface{}) (interface{}, e
 		pkg = &RpcPackege{}
 	}
 
-	if len(head) != int(this.GetHeadLen()) {
-		return nil, fmt.Errorf("invalid head length")
-	}
-
 	// 读取Len
 	pkg.Len = int32(binary.LittleEndian.Uint32(data))
 
