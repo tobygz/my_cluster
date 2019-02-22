@@ -163,6 +163,12 @@ func (this *Protocol) OnConnectionLost(fconn iface.Iconnection) {
 
 func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 	logger.Info("start receive data from socket...")
+	inter, enc := fconn.GetRc4()
+	var rc4alg *encry.Cipher = nil
+	if enc {
+		rc4alg = inter.(*encry.Cipher)
+	}
+
 	for {
 		//频率控制
 		err := this.DoFrequencyControl(fconn)
@@ -196,9 +202,9 @@ func (this *Protocol) StartReadThread(fconn iface.Iconnection) {
 			}
 		}
 		logger.Infof("pkg len:", pkg.Len, " enc data: ", pkg.Data, " benc:", this.benc)
-		if this.benc {
+		if enc {
 			dt := make([]byte, len(pkg.Data))
-			this.rc4.XorKeyStreamGeneric(dt[0:], pkg.Data[0:])
+			rc4alg.XorKeyStreamGeneric(dt[0:], pkg.Data[0:])
 			copy(pkg.Data[0:], dt)
 		}
 

@@ -63,6 +63,10 @@ func NewConnection(conn *net.TCPConn, sessionId uint32, protoc iface.IServerProt
 	return fconn
 }
 
+func (this *Connection) GetRc4() (interface{}, bool) {
+	return this.rc4Alg, this.bEnc
+}
+
 func (this *Connection) SyncKey() bool {
 	logger.Infof("Connection SyncKey rc4key:", this.rc4Key)
 	if this.rc4Key == nil || len(this.rc4Key) == 0 {
@@ -122,9 +126,6 @@ func (this *Connection) Start() {
 	this.Protoc.OnConnectionMade(this)
 	//this.StartWriteThread()
 	go this.sendThreadLoopMode()
-	if utils.GlobalObject.IsNet() {
-		this.Protoc.InitRc4(this.rc4Key)
-	}
 	this.Protoc.StartReadThread(this)
 }
 

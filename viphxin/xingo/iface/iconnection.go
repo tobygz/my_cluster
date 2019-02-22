@@ -16,4 +16,5 @@ type Iconnection interface {
 	GetProperty(string) (interface{}, error)
 	SetProperty(string, interface{})
 	RemoveProperty(string)
+	GetRc4() (interface{}, bool)
 }
